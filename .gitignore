@@ -1,3 +1,20 @@
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor state
+.vscode/
+*.swp
+
+#================== kai's ignore ====================
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
