@@ -6,7 +6,7 @@ from matplotlib.animation import FuncAnimation
 from IPython.display import HTML
 
 
-def animate_run(snapshots, E_trace, pair_trace, charges, L, K, sample_every):
+def animate_run(snapshots, E_trace, pair_trace, charges, L, display_value, display_label, sample_every):
     """Build a 3-panel animation and return an IPython HTML object for display."""
     sweep_indices = np.arange(len(E_trace)) * sample_every
     n_frames = len(snapshots)
@@ -42,7 +42,7 @@ def animate_run(snapshots, E_trace, pair_trace, charges, L, K, sample_every):
     axes[2].set_aspect("equal")
     axes[2].set_xlabel("x")
     axes[2].set_ylabel("y")
-    axes[2].set_title(f"Configuration (K={K:.2f})")
+    axes[2].set_title(f"Configuration ({display_label}={display_value:.2f})")
     axes[2].legend()
     sweep_text = axes[2].text(
         0.02, 0.95, '', transform=axes[2].transAxes,
