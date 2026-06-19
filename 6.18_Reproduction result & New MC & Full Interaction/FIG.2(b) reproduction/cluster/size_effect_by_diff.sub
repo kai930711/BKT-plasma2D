@@ -1,0 +1,28 @@
+universe = vanilla
+
+executable = size_effect_by_diff_run.sh
+arguments = $(N_VALUE)
+
+transfer_input_files = requirements.txt, Size_Effect_by_Diff_OneN.py, Monte_Carlo.py, Plasma_Interaction.py, Setup.py, Size_Effect_Functions.py
+
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_output_files = fig2b_summary_N$(N_VALUE).csv
+
+output = logs/size_effect_by_diff_N$(N_VALUE).out
+error = logs/size_effect_by_diff_N$(N_VALUE).err
+log = logs/size_effect_by_diff_N$(N_VALUE).log
+
+stream_output = True
+stream_error = True
+
+request_cpus = 1
+request_memory = 8GB
+request_disk = 4GB
+
+queue N_VALUE from (
+2
+8
+32
+104
+)
