@@ -222,3 +222,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# 9.21 scan: extracted raw data (~1 GB, files near GitHub's 100 MB limit); the .tar.gz archives are tracked
+9.21_Correlation and Machine Learning/Data/scan_921_*/
