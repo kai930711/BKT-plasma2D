@@ -169,10 +169,10 @@ For the low-$T$ logarithmic plasma, the algorithm samples configurations accordi
 $$
 \pi(\mathbf X)
 \propto
-\exp\!\left[
-\frac{K}{T}\sum_{i<j}s_i s_j
+\exp\!\Bigl[
+\frac{K}{T}\sum_{i<j} s_i s_j
 \ln\!\left(\frac{|\mathbf r_i-\mathbf r_j|}{\xi}\right)
-\right].
+\Bigr].
 $$
 
 So the Monte Carlo trajectory spends more time in configurations where
