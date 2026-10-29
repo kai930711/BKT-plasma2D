@@ -167,12 +167,7 @@ This allows the Markov chain to explore configuration space while still convergi
 For the low-$T$ logarithmic plasma, the algorithm samples configurations according to
 
 ```math
-\pi(\mathbf X)
-\propto
-\exp\!\Bigl[
-\frac{K}{T}\sum_{i<j} s_i s_j
-\ln\!\left(\frac{|\mathbf r_i-\mathbf r_j|}{\xi}\right)
-\Bigr].
+\pi(\mathbf{X}) \propto \exp\left[ \frac{K}{T} \sum_{i \lt j} s_i s_j \ln\left( \frac{\lvert \mathbf{r}_i - \mathbf{r}_j \rvert}{\xi} \right) \right]
 ```
 
 So the Monte Carlo trajectory spends more time in configurations where
