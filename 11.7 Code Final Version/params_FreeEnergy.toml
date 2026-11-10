@@ -1,0 +1,23 @@
+driver = "FreeEnergy"
+N = 50                     # 只用 50（更大的 N 单个节点超过 3 小时）
+T = 0.05
+E0 = 0
+densities = [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.05, 0.07, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
+replicates = 1             # 每个 λ 节点的独立种子数
+
+# ===== 中文教程 =====
+# 参数写法：列表 [0.1, 0.2]；单个数 0.05；等间距 "起点:间隔:终点"；对数 "log:起点:终点:每十倍点数"（含两端）。
+# sweep 数不用填，程序按 E0 自动设定。
+#
+# 1. 在项目根目录的 Cluster_Tasks/ 里新建一个任务文件夹（名字不要有空格），例如 Cluster_Tasks/11.9_FreeEnergy
+# 2. 把本文件复制进去，改名为 params.toml；在 VS Code 里改上面的参数，Cmd+S 保存
+# 3. 打开终端，依次运行（第一行进入代码文件夹）：
+#      cd "/Users/jinlingxiao123/Downloads/Research Project/BKT-plasma2D/11.7 Code Final Version"
+#      julia --project=. Make_Jobs.jl ../Cluster_Tasks/11.9_FreeEnergy/params.toml
+#    完成后任务文件夹里有：params.toml、FreeEnergy_jobs.csv（留档）、upload/（要上传的全部内容）
+# 4. 在集群的 BKT-plasma2D/ 下建日期文件夹（例如 11.9），把 upload/ 里面的所有内容上传进去
+#    （同一天的 Dielectric 和 FreeEnergy 可以放进同一个日期文件夹）
+# 5. 在集群上运行：
+#      cd BKT-plasma2D/11.9
+#      condor_submit FreeEnergy.sub
+#    看进度、合并下载的命令写在 FreeEnergy.sub 开头
