@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BKT Phase Map</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #1d2330; --muted: #6b7280; --line: #e5e7eb; --grid: #eceef1;
+    --blue: #2f6db5; --orange: #e8822a; --gray: #9b9b9b; --accent: #1f6feb; --dot: #1d2330;
+    --plus: #d1495b; --minus: #26334d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f141b; --card: #171d26; --ink: #e6e9ee; --muted: #9aa3af; --line: #2a3340; --grid: #232b36;
+      --blue: #5b9be6; --orange: #f0954a; --gray: #8e959e; --accent: #58a6ff; --dot: #e6e9ee;
+      --plus: #f07080; --minus: #b8c4d9;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f141b; --card: #171d26; --ink: #e6e9ee; --muted: #9aa3af; --line: #2a3340; --grid: #232b36;
+    --blue: #5b9be6; --orange: #f0954a; --gray: #8e959e; --accent: #58a6ff; --dot: #e6e9ee;
+    --plus: #f07080; --minus: #b8c4d9;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; background: var(--card);
+         border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .bar label { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+  select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 14px 2px 4px; align-items: center; }
+  .key { display: inline-flex; align-items: center; gap: 7px; }
+  .sw { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .key svg { width: 26px; height: 12px; flex: none; }
+  .counts { color: var(--muted); margin: 2px 2px 12px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { fill: var(--muted); font-size: 12px; }
+  svg .title { fill: var(--ink); font-size: 15px; font-weight: 600; }
+  .pt { cursor: pointer; }
+  .pt:hover circle.m { stroke-width: 3.5; }
+  .hint { color: var(--muted); font-size: 12px; text-align: center; margin-top: 4px; }
+  .panel h2 { font-size: 16px; margin: 0 0 2px; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; color: #fff; margin: 6px 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
+  .sec { margin: 14px 0 4px; font-weight: 600; }
+  .flag { color: var(--orange); }
+  .ok { color: var(--blue); }
+  .side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .box h2 { font-size: 16px; margin: 0; }
+  .boxhead { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .frames { display: flex; gap: 4px; flex-wrap: wrap; }
+  .frames button { font: inherit; font-size: 12px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+                   border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  .frames button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #boxview { max-width: 400px; margin: 0 auto; border: 1px solid var(--line); background: var(--bg); }
+  .boxkeys { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-top: 8px; color: var(--muted); }
+  .boxkeys label { display: flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BKT phase map from the dielectric constant</h1>
+  <p class="sub">1/ε = 1 − κ S<sub>QQ</sub>(k<sub>min</sub>)/2π (no 1/N, κ = 1/T*). BKT line where 1/ε = 4T*. Data: 9.21 scan.</p>
+
+  <div class="bar">
+    <label>N <select id="nSel"></select></label>
+    <label>ρ* <select id="rhoSel"></select></label>
+    <label><input type="checkbox" id="showReview" checked> Review markers</label>
+    <label><input type="checkbox" id="showLine" checked> BKT line</label>
+  </div>
+
+  <div class="legend" id="legend"></div>
+  <div class="counts" id="counts"></div>
+
+  <div class="grid">
+    <div class="card">
+      <svg id="map" viewBox="0 0 560 540" role="img" aria-label="Phase map"></svg>
+      <div class="hint">Click a dot to inspect that state · arrow keys move between states</div>
+    </div>
+    <div class="side">
+      <div class="card box">
+        <div class="boxhead">
+          <h2>Box snapshot</h2>
+          <div class="frames" id="frames"></div>
+        </div>
+        <svg id="boxview" viewBox="0 0 400 400" role="img" aria-label="Particle positions in the simulation box"></svg>
+        <div class="boxkeys">
+          <span class="key"><span class="sw" style="background:var(--plus)"></span>+q</span>
+          <span class="key"><span class="sw" style="background:var(--minus)"></span>−q</span>
+          <label><input type="checkbox" id="centre" checked> Centre on densest region</label>
+        </div>
+        <div class="note" id="boxnote"></div>
+      </div>
+      <div class="card panel" id="panel"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA__;
+const CLS = {
+  dielectric: { label: 'Dielectric (bound pairs)', color: 'var(--blue)' },
+  conductor:  { label: 'Conductor (free charges)', color: 'var(--orange)' },
+  near:       { label: 'At BKT (within 2 SEM)',    color: 'var(--gray)' },
+};
+const $ = id => document.getElementById(id);
+const fmt = (v, n = 3) => (v === null || v === undefined) ? '—' : Number(v).toFixed(n);
+const close = (a, b) => Math.abs(a - b) < 1e-9;
+let rho = DATA.rho[3], sel = null, frame = DATA.states[0].box.xy.length - 1;
+$('centre').onchange = () => renderBox();
+
+$('nSel').innerHTML = `<option>${DATA.N}</option><option disabled>100 (not simulated)</option><option disabled>200 (not simulated)</option>`;
+$('rhoSel').innerHTML = DATA.rho.map(r => `<option value="${r}" ${r === rho ? 'selected' : ''}>${r}</option>`).join('');
+$('rhoSel').onchange = e => { rho = +e.target.value; sel = null; render(); };
+$('showReview').onchange = render;
+$('showLine').onchange = render;
+
+$('legend').innerHTML = Object.values(CLS).map(c =>
+  `<span class="key"><span class="sw" style="background:${c.color}"></span>${c.label}</span>`).join('') +
+  `<span class="key"><span class="sw" style="border:2.5px solid var(--muted);background:var(--card)"></span>Clustered / droplet</span>` +
+  `<span class="key"><span class="sw" style="width:5px;height:5px;background:var(--dot)"></span>Drifting (review)</span>` +
+  `<span class="key"><svg width="26" height="12"><line x1="0" y1="6" x2="26" y2="6" stroke="var(--ink)" stroke-width="1.8"/><rect x="9" y="2" width="8" height="8" transform="rotate(45 13 6)" fill="var(--ink)"/></svg>BKT line (◆ reliable, ◇ flagged)</span>`;
+
+function scales(W, H, m, xd, yd) {
+  return {
+    x: v => m.l + (v - xd[0]) / (xd[1] - xd[0]) * (W - m.l - m.r),
+    y: v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b),
+  };
+}
+
+function render() {
+  const S = DATA.states.filter(s => close(s.rho, rho));
+  const C = DATA.columns.filter(c => close(c.rho, rho));
+  const review = $('showReview').checked, line = $('showLine').checked;
+  const n = k => S.filter(s => s.phase === k).length;
+  $('counts').textContent = `${S.length} states · dielectric ${n('dielectric')} · conductor ${n('conductor')} · ` +
+    `at BKT ${n('near')} · clustered ${S.filter(s => s.clustered).length} · drifting ${S.filter(s => s.drifting).length}`;
+
+  const W = 560, H = 540, m = { l: 58, r: 20, t: 46, b: 56 };
+  const T = DATA.T, sc = scales(W, H, m, [-0.03, 0.33], [T[0] - 0.022, T[T.length - 1] + 0.012]);
+  let g = `<text class="title" x="${W / 2}" y="24" text-anchor="middle">N = ${DATA.N} · ρ* = ${rho}</text>`;
+  DATA.E0.forEach(e => g += `<line x1="${sc.x(e)}" x2="${sc.x(e)}" y1="${m.t}" y2="${H - m.b}" stroke="var(--grid)"/>` +
+    `<text x="${sc.x(e)}" y="${H - m.b + 20}" text-anchor="middle">${e.toFixed(2)}</text>`);
+  T.forEach(t => g += `<line x1="${m.l}" x2="${W - m.r}" y1="${sc.y(t)}" y2="${sc.y(t)}" stroke="var(--grid)"/>` +
+    `<text x="${m.l - 10}" y="${sc.y(t) + 4}" text-anchor="end">${t.toFixed(2)}</text>`);
+  g += `<text x="${W / 2}" y="${H - 14}" text-anchor="middle">E0*</text>` +
+       `<text x="16" y="${H / 2}" text-anchor="middle" transform="rotate(-90 16 ${H / 2})">T*</text>`;
+
+  if (line) {
+    const ok = C.filter(c => c.T_BKT !== null).sort((a, b) => a.E0 - b.E0);
+    if (ok.length > 1) g += `<polyline fill="none" stroke="var(--ink)" stroke-width="1.8" points="${ok.map(c => `${sc.x(c.E0)},${sc.y(c.T_BKT)}`).join(' ')}"/>`;
+    ok.forEach(c => g += `<rect x="${sc.x(c.E0) - 4.5}" y="${sc.y(c.T_BKT) - 4.5}" width="9" height="9" transform="rotate(45 ${sc.x(c.E0)} ${sc.y(c.T_BKT)})" fill="${c.reliable ? 'var(--ink)' : 'var(--card)'}" stroke="var(--ink)" stroke-width="1.5"/>`);
+    C.filter(c => c.status.startsWith('below')).forEach(c => {
+      const x = sc.x(c.E0), y = sc.y(T[0] - 0.015);
+      g += `<path d="M${x - 6},${y - 4} L${x + 6},${y - 4} L${x},${y + 6} Z" fill="var(--ink)"/>`;
+    });
+  }
+
+  S.forEach((s, i) => {
+    const x = sc.x(s.E0), y = sc.y(s.T), col = CLS[s.phase].color;
+    const isSel = sel && close(sel.E0, s.E0) && close(sel.T, s.T);
+    g += `<g class="pt" data-i="${i}">` +
+      `<circle cx="${x}" cy="${y}" r="20" fill="transparent"/>` +
+      (isSel ? `<circle cx="${x}" cy="${y}" r="17" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` : '') +
+      `<circle class="m" cx="${x}" cy="${y}" r="11" fill="${s.clustered ? 'var(--card)' : col}" stroke="${col}" stroke-width="${s.clustered ? 3 : 0}"/>` +
+      (review && s.drifting ? `<circle cx="${x}" cy="${y}" r="3" fill="var(--dot)"/>` : '') +
+      `<title>E0*=${s.E0} T*=${s.T} · ${CLS[s.phase].label}${s.clustered ? ' · clustered' : ''}${s.drifting ? ' · drifting' : ''}</title></g>`;
+  });
+  $('map').innerHTML = g;
+  $('map').querySelectorAll('.pt').forEach(el => el.onclick = () => { sel = S[+el.dataset.i]; render(); });
+  renderPanel(S, C);
+}
+
+function renderPanel(S, C) {
+  if (!sel) sel = S.find(s => s.E0 === 0 && close(s.T, DATA.T[0])) || S[0];
+  const s = sel, c = C.find(c => close(c.E0, s.E0));
+  const col = S.filter(x => close(x.E0, s.E0)).sort((a, b) => a.T - b.T);
+  let colText;
+  if (c.T_BKT !== null) {
+    colText = `T<sub>BKT</sub> = <b>${fmt(c.T_BKT)}</b> (${fmt(c.low)}–${fmt(c.high)}) ` +
+      (c.reliable ? `<span class="ok">reliable</span>` : `<span class="flag">flagged: ${c.why.join(', ')}</span>`);
+  } else {
+    colText = c.status.startsWith('below') ? `No crossing in the grid: T<sub>BKT</sub> &lt; ${DATA.T[0]}` : c.status;
+  }
+  const W = 380, H = 210, m = { l: 44, r: 12, t: 12, b: 34 };
+  const ys = col.map(x => x.inv_eps).concat(col.map(x => 4 * x.T));
+  const yd = [Math.min(0, ...ys) - 0.05, Math.max(...ys) + 0.05], xd = [DATA.T[0] - 0.01, DATA.T[DATA.T.length - 1] + 0.01];
+  const sc = scales(W, H, m, xd, yd);
+  let g = '';
+  [0, 0.25, 0.5, 0.75, 1, 1.25].filter(v => v >= yd[0] && v <= yd[1]).forEach(v =>
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${sc.y(v)}" y2="${sc.y(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${sc.y(v) + 4}" text-anchor="end">${v}</text>`);
+  [0.15, 0.2, 0.25, 0.3].forEach(v => g += `<text x="${sc.x(v)}" y="${H - m.b + 16}" text-anchor="middle">${v}</text>`);
+  g += `<text x="${(W + m.l) / 2}" y="${H - 4}" text-anchor="middle">T*</text>`;
+  g += `<line x1="${sc.x(xd[0])}" y1="${sc.y(4 * xd[0])}" x2="${sc.x(xd[1])}" y2="${sc.y(4 * xd[1])}" stroke="var(--ink)" stroke-dasharray="5 4"/>`;
+  g += `<text x="${sc.x(xd[1]) - 4}" y="${sc.y(4 * xd[1]) + 14}" text-anchor="end">4T*</text>`;
+  if (c.T_BKT !== null) g += `<line x1="${sc.x(c.T_BKT)}" x2="${sc.x(c.T_BKT)}" y1="${m.t}" y2="${H - m.b}" stroke="var(--accent)" stroke-dasharray="3 3"/>`;
+  g += `<polyline fill="none" stroke="var(--muted)" stroke-width="1.4" points="${col.map(x => `${sc.x(x.T)},${sc.y(x.inv_eps)}`).join(' ')}"/>`;
+  col.forEach(x => {
+    const cc = CLS[x.phase].color, isSel = close(x.T, s.T);
+    g += `<line x1="${sc.x(x.T)}" x2="${sc.x(x.T)}" y1="${sc.y(x.inv_eps - x.sem)}" y2="${sc.y(x.inv_eps + x.sem)}" stroke="${cc}"/>` +
+      `<circle cx="${sc.x(x.T)}" cy="${sc.y(x.inv_eps)}" r="${isSel ? 6 : 4}" fill="${x.clustered ? 'var(--card)' : cc}" stroke="${isSel ? 'var(--accent)' : cc}" stroke-width="${isSel ? 2.5 : 1.8}"/>`;
+  });
+  $('panel').innerHTML = `
+    <h2>Selected state</h2>
+    <div>N=${DATA.N} · ρ*=${s.rho} · E0*=${s.E0.toFixed(2)} · T*=${s.T.toFixed(3)}</div>
+    <span class="badge" style="background:${CLS[s.phase].color}">${CLS[s.phase].label}</span>
+    <table>
+      <tr><td>1/ε(k<sub>min</sub>)</td><td>${fmt(s.inv_eps)} ± ${fmt(s.sem)}</td></tr>
+      <tr><td>4T* (BKT level)</td><td>${fmt(4 * s.T)}</td></tr>
+      <tr><td>1/ε − 4T*</td><td>${s.diff > 0 ? '+' : ''}${fmt(s.diff)}</td></tr>
+      <tr><td>S<sub>QQ</sub>(k<sub>min</sub>)</td><td>${fmt(s.sqq, 4)} ± ${fmt(s.sqq_sem, 4)}</td></tr>
+      <tr><td>S<sub>NN</sub>(k<sub>min</sub>)/N</td><td>${fmt(s.snn, 2)} ${s.clustered ? '<span class="flag">clustered (&gt; ' + DATA.cluster_factor + ')</span>' : ''}</td></tr>
+      <tr><td>Drift z (half-run S<sub>NN</sub>)</td><td>${fmt(s.drift, 2)} ${s.drifting ? '<span class="flag">drifting (|z| &gt; ' + DATA.drift_z + ')</span>' : ''}</td></tr>
+      <tr><td>MC acceptance</td><td>${(100 * s.acc).toFixed(1)}%</td></tr>
+    </table>
+    <div class="sec">This E0* column: 1/ε vs T*</div>
+    <svg viewBox="0 0 ${W} ${H}">${g}</svg>
+    <div class="note">${colText}. Crossing of the 1/ε curve with the dashed 4T* line; rings are clustered states.</div>`;
+  renderBox();
+}
+
+// Box view: one saved frame of the selected state, unit periodic box, disks of diameter sigma = a.
+function renderBox() {
+  const s = sel, b = s.box, n = b.q.length, P = 400;
+  $('frames').innerHTML = b.sweep.map((sw, i) =>
+    `<button class="${i === frame ? 'on' : ''}" data-f="${i}">sweep ${sw.toLocaleString()}</button>`).join('');
+  $('frames').querySelectorAll('button').forEach(el => el.onclick = () => { frame = +el.dataset.f; renderBox(); });
+  const xs = [], ys = [];
+  for (let i = 0; i < n; i++) { xs.push(b.xy[frame][2 * i] / 1e4); ys.push(b.xy[frame][2 * i + 1] / 1e4); }
+  // Circular mean on each periodic axis, so a droplet that crosses the box edge is drawn in one piece.
+  const centre = v => {
+    const c = v.reduce((a, x) => a + Math.cos(2 * Math.PI * x), 0), sn = v.reduce((a, x) => a + Math.sin(2 * Math.PI * x), 0);
+    return Math.atan2(sn, c) / (2 * Math.PI);
+  };
+  const wrap = x => x - Math.floor(x);
+  const cx = $('centre').checked ? centre(xs) - 0.5 : 0, cy = $('centre').checked ? centre(ys) - 0.5 : 0;
+  const rTrue = s.a / 2 * P, r = Math.max(rTrue, 2.5);
+  let g = '';
+  for (let i = 0; i < n; i++) {
+    const x = wrap(xs[i] - cx) * P, y = (1 - wrap(ys[i] - cy)) * P;
+    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${b.q[i] > 0 ? 'var(--plus)' : 'var(--minus)'}"/>`;
+  }
+  $('boxview').innerHTML = g;
+  const scale = rTrue >= 2.5 ? 'Disks drawn at true size (diameter σ).' : `Disks enlarged ×${(r / rTrue).toFixed(1)} so they are visible; true diameter σ = ${s.a.toFixed(4)} L.`;
+  $('boxnote').innerHTML = `${n} particles in the periodic box L = 1. S<sub>NN</sub>(k<sub>min</sub>)/N = ${fmt(s.snn, 2)} ` +
+    (s.clustered ? '<span class="flag">(clustered: expect a droplet)</span>' : '(uniform: no droplet expected)') + `. ${scale}`;
+}
+
+// Arrow keys move the selection: left/right = E0*, up/down = T*.
+document.addEventListener('keydown', e => {
+  if (!sel || e.target.tagName === 'SELECT') return;
+  const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
+  if (!step) return;
+  const ie = DATA.E0.findIndex(v => close(v, sel.E0)) + step[0], it = DATA.T.findIndex(v => close(v, sel.T)) + step[1];
+  const next = DATA.states.find(s => close(s.rho, rho) && close(s.E0, DATA.E0[ie]) && close(s.T, DATA.T[it]));
+  if (next) { e.preventDefault(); sel = next; render(); }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+# Exactly 10 independent jobs: one density and 121 parameter points per job.
+# Submit from the access point with: condor_submit scan_921.sub
+# After submission, progress can be watched either with condor_tail CLUSTER.PROCESS
+# or by tail -f on the corresponding streamed logs/*.out file.
+universe = vanilla
+initialdir = /home/ljin62/BKT-plasma2D/9.21
+executable = run_scan_921.sh
+arguments = $(rho_tag) $(start_id) $(end_id)
+
+log = logs/scan_921_rho_$(rho_tag).$(Cluster).$(Process).log
+output = logs/scan_921_rho_$(rho_tag).$(Cluster).$(Process).out
+error = logs/scan_921_rho_$(rho_tag).$(Cluster).$(Process).err
+stream_output = True
+stream_error = True
+
+should_transfer_files = YES
+# run_scan_921.sh refreshes scan_results.tar.gz atomically every 15 minutes and
+# again on normal/signal-driven exit. ON_EXIT_OR_EVICT returns the newest intact
+# archive if the execute slot is reclaimed. Exact restart of the interrupted point
+# is intentionally not implemented; a later retry starts that density job afresh.
+when_to_transfer_output = ON_EXIT_OR_EVICT
+transfer_input_files = /home/ljin62/BKT-plasma2D/julia-1.12.6-linux-x86_64.tar.gz, Project.toml, Manifest.toml, Setup.jl, Plasma_Interaction.jl, Monte_Carlo.jl, one_over_epsilon0.jl, Task_Animation_Dielectric.jl, read_scan.py
+transfer_output_files = scan_results.tar.gz
+transfer_output_remaps = "scan_results.tar.gz=logs/scan_921_rho_$(rho_tag)_$(Cluster)_$(Process).tar.gz"
+
+# The shell script accepts an override, but 900 s is a conservative default that
+# avoids repeatedly compressing the growing result set after every parameter point.
+environment = "CHECKPOINT_SECONDS=900"
+
+request_cpus = 1
+# 2 GB was insufficient in the 2026-09-23 pilot: Julia stabilized near
+# 2.02 GB RSS and eventually hit the 2048 MB cgroup limit. Keep comfortable
+# headroom for Julia/JIT plus the periodic result-archive helper process.
+request_memory = 4GB
+# If a future execute node still runs out of memory, retry the same queued job
+# with progressively larger slots instead of immediately going on hold.
+retry_request_memory = 6GB, 8GB
+request_disk = 8GB
+requirements = (OpSys == "LINUX") && (Arch == "X86_64")
+notification = Never
++JobBatchName = "BKT_9.21_1210_points_10_densities"
+
+queue rho_tag, start_id, end_id from (
+    0p001    1       121
+    0p002    122     242
+    0p005    243     363
+    0p01     364     484
+    0p02     485     605
+    0p03     606     726
+    0p05     727     847
+    0p07     848     968
+    0p1      969     1089
+    0p2      1090    1210
+)

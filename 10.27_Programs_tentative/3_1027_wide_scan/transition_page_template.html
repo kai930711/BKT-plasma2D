@@ -1,0 +1,373 @@
+<title>BKT and Liquid–Gas Lines</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one control bar, then a map card on the left and the animated box + selected-state readout on the right. */
+  :root {
+    --bg: #f3f4f6; --card: #ffffff; --ink: #1c2230; --muted: #667085; --line: #dfe3ea; --grid: #eceff3;
+    --lg: #c0307a;       /* liquid-gas line */
+    --accent: #1f6feb;   /* selection */
+    --plus: #d1495b; --minus: #26334d;
+    --warn: #b45f06;
+    --font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e131a; --card: #161c25; --ink: #e5e8ee; --muted: #98a2b3; --line: #2a3340; --grid: #212934;
+      --lg: #f06aa8; --accent: #58a6ff; --plus: #f07080; --minus: #b8c4d9; --warn: #f0a050; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e131a; --card: #161c25; --ink: #e5e8ee; --muted: #98a2b3; --line: #2a3340; --grid: #212934;
+    --lg: #f06aa8; --accent: #58a6ff; --plus: #f07080; --minus: #b8c4d9; --warn: #f0a050; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font);
+         padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 40px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; text-wrap: balance; }
+  .sub { color: var(--muted); margin: 0 0 14px; max-width: 78ch; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { font: inherit; font-weight: 500; color: var(--muted); background: transparent; border: 1px solid var(--line);
+                 border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { color: var(--ink); background: var(--card); border-color: var(--ink); }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; background: var(--card);
+         border: 1px solid var(--line); border-radius: 10px; padding: 11px 14px; }
+  .bar label { display: flex; gap: 7px; align-items: center; color: var(--muted); }
+  select { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 12px 2px 4px; align-items: center; color: var(--ink); }
+  .key { display: inline-flex; align-items: center; gap: 7px; }
+  .key svg { width: 30px; height: 14px; flex: none; }
+  .rampbar { width: 120px; height: 10px; border-radius: 5px; border: 1px solid var(--line); }
+  .counts { color: var(--muted); margin: 2px 2px 12px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+  svg { width: 100%; height: auto; display: block; }
+  svg text { fill: var(--muted); font: 11.5px var(--font); }
+  svg .title { fill: var(--ink); font-size: 14px; font-weight: 600; }
+  .pt { cursor: pointer; }
+  .hint { color: var(--muted); font-size: 12px; text-align: center; margin-top: 4px; }
+  .side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .btn { font: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+         border-radius: 6px; padding: 4px 11px; cursor: pointer; }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #boxview { max-width: 400px; margin: 0 auto; border: 1px solid var(--line); background: var(--bg); }
+  .ctl { display: flex; gap: 12px; align-items: center; margin-top: 10px; flex-wrap: wrap; color: var(--muted); }
+  .ctl input[type=range] { flex: 1 1 140px; min-width: 100px; accent-color: var(--accent); }
+  .sw { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 6px; }
+  td { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-family: var(--mono); font-size: 13px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
+  .sec { margin: 14px 0 2px; font-weight: 600; }
+  .flag { color: var(--warn); }
+  .state { font-family: var(--mono); font-size: 13px; color: var(--muted); margin: 3px 0 0; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <h1>BKT and liquid–gas lines from S<sub>QQ</sub></h1>
+  <p class="sub">Each dot is one Monte Carlo state of the 2D two-component log plasma, N = 50. Its fill is 1/ε(k<sub>min</sub>) = 1 − κ S<sub>QQ</sub>/(2π m²) with κ = 1/T*. Click a dot to see its particles move.</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabLines" aria-selected="true">Density scan, T* 0.15–0.35</button>
+    <button role="tab" id="tabPilot" aria-selected="false">Wide pilot, ρ* = 0.05</button>
+  </div>
+
+  <div class="bar">
+    <span id="ctlLines" style="display:contents">
+      <label>ρ* <select id="rhoSel"></select></label>
+      <label><input type="checkbox" id="showLG" checked> Liquid–gas line</label>
+      <label><input type="checkbox" id="showBKT" checked> BKT line</label>
+    </span>
+    <span id="ctlPilot" style="display:contents" hidden>
+      <label>Start <select id="initSel"><option value="hot">hot (random)</option><option value="cold">cold (droplet)</option></select></label>
+    </span>
+  </div>
+
+  <div class="legend" id="legend"></div>
+  <div class="counts" id="counts"></div>
+
+  <div class="grid">
+    <div class="card">
+      <svg id="map" viewBox="0 0 560 540" role="img" aria-label="Map of 1/ε over E0* and T*"></svg>
+      <div class="hint" id="hint"></div>
+    </div>
+    <div class="side">
+      <div class="card">
+        <div class="head">
+          <h2>Box animation</h2>
+          <div><button class="btn" id="play">▶ Play</button></div>
+        </div>
+        <svg id="boxview" viewBox="0 0 400 400" role="img" aria-label="Particle positions in the simulation box"></svg>
+        <div class="ctl">
+          <input type="range" id="frameSlider" min="0" max="7" step="1" value="7" aria-label="Saved frame">
+          <span id="sweepLabel"></span>
+        </div>
+        <div class="ctl">
+          <span class="sw" style="background:var(--plus)"></span>+q
+          <span class="sw" style="background:var(--minus)"></span>−q
+          <label><input type="checkbox" id="centre" checked> Centre on densest region</label>
+        </div>
+        <div class="note" id="boxnote"></div>
+      </div>
+      <div class="card" id="panel"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA__;
+const $ = id => document.getElementById(id);
+const fmt = (v, n = 3) => (v === null || v === undefined || Number.isNaN(v)) ? '—' : Number(v).toFixed(n);
+const close = (a, b) => Math.abs(a - b) < 1e-9;
+const STOPS = [[0, [39, 56, 107]], [0.5, [42, 157, 143]], [1, [244, 226, 133]]];
+function ramp(t) {
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 1; i < STOPS.length; i++) if (t <= STOPS[i][0]) {
+    const [t0, c0] = STOPS[i - 1], [t1, c1] = STOPS[i], u = (t - t0) / (t1 - t0);
+    return `rgb(${c0.map((v, k) => Math.round(v + u * (c1[k] - v))).join(',')})`;
+  }
+}
+const RAMP_CSS = `linear-gradient(90deg, ${[0, .25, .5, .75, 1].map(t => ramp(t)).join(',')})`;
+
+let mode = 'lines', rho = 0.05, init = 'hot', sel = null, frame = 7, timer = null;
+
+// ---------------------------------------------------------------- generic svg chart
+function chart(o) {
+  const W = o.W || 380, H = o.H || 200, m = { l: 46, r: 12, t: 12, b: 34 };
+  const tx = o.xlog ? Math.log10 : v => v, ty = o.ylog ? Math.log10 : v => v;
+  const sx = v => m.l + (tx(v) - tx(o.xd[0])) / (tx(o.xd[1]) - tx(o.xd[0])) * (W - m.l - m.r);
+  const sy = v => H - m.b - (ty(v) - ty(o.yd[0])) / (ty(o.yd[1]) - ty(o.yd[0])) * (H - m.t - m.b);
+  let g = '';
+  (o.yticks || []).forEach(v => g += `<line x1="${m.l}" x2="${W - m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${sy(v) + 4}" text-anchor="end">${v}</text>`);
+  (o.xticks || []).forEach(v => g += `<text x="${sx(v)}" y="${H - m.b + 16}" text-anchor="middle">${v}</text>`);
+  g += `<text x="${(W + m.l) / 2}" y="${H - 3}" text-anchor="middle">${o.xlabel || ''}</text>`;
+  (o.bands || []).forEach(b => g += `<rect x="${sx(b[0])}" y="${m.t}" width="${sx(b[1]) - sx(b[0])}" height="${H - m.t - m.b}" fill="var(--lg)" opacity=".16"/>`);
+  (o.hlines || []).forEach(h => g += `<line x1="${m.l}" x2="${W - m.r}" y1="${sy(h.y)}" y2="${sy(h.y)}" stroke="${h.color || 'var(--muted)'}" stroke-dasharray="${h.dash || '4 4'}"/>`);
+  (o.vlines || []).forEach(v => g += `<line x1="${sx(v.x)}" x2="${sx(v.x)}" y1="${m.t}" y2="${H - m.b}" stroke="${v.color}" stroke-dasharray="3 3" stroke-width="1.5"/>`);
+  (o.curves || []).forEach(c => g += `<polyline fill="none" stroke="${c.color}" stroke-width="${c.w || 1.6}" ${c.dash ? `stroke-dasharray="${c.dash}"` : ''} points="${c.pts.map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ')}"/>`);
+  (o.points || []).forEach(p => {
+    if (p.err) g += `<line x1="${sx(p.x)}" x2="${sx(p.x)}" y1="${sy(p.y - p.err)}" y2="${sy(p.y + p.err)}" stroke="var(--muted)"/>`;
+    g += `<circle cx="${sx(p.x)}" cy="${sy(p.y)}" r="${p.sel ? 6 : 4}" fill="${p.fill || 'var(--muted)'}" stroke="${p.sel ? 'var(--accent)' : 'var(--ink)'}" stroke-width="${p.sel ? 2.5 : 1}"/>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+
+// ---------------------------------------------------------------- legend, controls, tabs
+function renderLegend() {
+  const rampKey = `<span class="key">1/ε(k<sub>min</sub>) <span class="rampbar" style="background:${RAMP_CSS}"></span> 0 → 1</span>`;
+  if (mode === 'lines') {
+    $('legend').innerHTML = rampKey +
+      `<span class="key"><svg><line x1="0" y1="7" x2="30" y2="7" stroke="var(--card)" stroke-width="7"/><line x1="0" y1="7" x2="30" y2="7" stroke="var(--lg)" stroke-width="3"/></svg>Liquid–gas: fastest rise of 1/ε along E0*</span>` +
+      `<span class="key"><svg><line x1="0" y1="7" x2="30" y2="7" stroke="var(--ink)" stroke-width="1.8" stroke-dasharray="5 3"/><rect x="11" y="3" width="8" height="8" transform="rotate(45 15 7)" fill="var(--ink)"/></svg>BKT: 1/ε = 4T*  (◆ homogeneous, ◇ inside a droplet)</span>` +
+      `<span class="key"><svg><circle cx="15" cy="7" r="5.5" fill="none" stroke="var(--ink)" stroke-width="2.5"/></svg>Clustered (S<sub>NN</sub>/N &gt; ${DATA.cluster_factor * 1})</span>`;
+  } else {
+    $('legend').innerHTML = rampKey +
+      `<span class="key"><svg><text x="10" y="12" style="font-size:14px;fill:var(--ink)">×</text></svg>hot and cold starts differ by more than 0.15 in 1/ε</span>`;
+  }
+}
+function setMode(m) {
+  mode = m; sel = null; stop();
+  $('tabLines').setAttribute('aria-selected', m === 'lines'); $('tabPilot').setAttribute('aria-selected', m === 'pilot');
+  $('ctlLines').hidden = m !== 'lines'; $('ctlPilot').hidden = m !== 'pilot';
+  $('ctlLines').style.display = m === 'lines' ? 'contents' : 'none'; $('ctlPilot').style.display = m === 'pilot' ? 'contents' : 'none';
+  renderLegend(); render();
+}
+$('tabLines').onclick = () => setMode('lines'); $('tabPilot').onclick = () => setMode('pilot');
+$('rhoSel').innerHTML = DATA.rho.map(r => `<option value="${r}" ${close(r, rho) ? 'selected' : ''}>${r}</option>`).join('');
+$('rhoSel').onchange = e => {
+  const old = sel; rho = +e.target.value;
+  sel = old ? (DATA.states.find(s => close(s.rho, rho) && close(s.E0, old.E0) && close(s.T, old.T)) || null) : null; render();
+};
+$('showLG').onchange = render; $('showBKT').onchange = render;
+$('initSel').onchange = e => { const old = sel; init = e.target.value; sel = old ? (DATA.pilot.runs.find(r => r.init === init && close(r.E0, old.E0) && close(r.T, old.T)) || null) : null; render(); };
+$('centre').onchange = () => renderBox();
+
+// ---------------------------------------------------------------- box animation
+function stop() { if (timer) { clearInterval(timer); timer = null; } $('play').textContent = '▶ Play'; $('play').classList.remove('on'); }
+function play() {
+  if (timer) return stop();
+  $('play').textContent = '❚❚ Pause'; $('play').classList.add('on');
+  timer = setInterval(() => { frame = (frame + 1) % 8; renderBox(); }, 650);
+}
+$('play').onclick = play;
+$('frameSlider').oninput = e => { stop(); frame = +e.target.value; renderBox(); };
+
+function renderBox() {
+  const s = sel, b = s.box, n = b.q.length, P = 400;
+  $('frameSlider').value = frame;
+  $('sweepLabel').textContent = `sweep ${b.sweep[frame].toLocaleString()}`;
+  const xs = [], ys = [];
+  for (let i = 0; i < n; i++) { xs.push(b.xy[frame][2 * i] / 1e3); ys.push(b.xy[frame][2 * i + 1] / 1e3); }
+  // Circular mean on each periodic axis, so a droplet that crosses the box edge is drawn in one piece.
+  const centre = v => {
+    const c = v.reduce((a, x) => a + Math.cos(2 * Math.PI * x), 0), sn = v.reduce((a, x) => a + Math.sin(2 * Math.PI * x), 0);
+    return Math.atan2(sn, c) / (2 * Math.PI);
+  };
+  const wrap = x => x - Math.floor(x);
+  const on = $('centre').checked, cx = on ? centre(xs) - 0.5 : 0, cy = on ? centre(ys) - 0.5 : 0;
+  const rTrue = s.a / 2 * P, r = Math.max(rTrue, 2.6);
+  let g = '';
+  for (let i = 0; i < n; i++) {
+    const x = wrap(xs[i] - cx) * P, y = (1 - wrap(ys[i] - cy)) * P;
+    g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${b.q[i] > 0 ? 'var(--plus)' : 'var(--minus)'}"/>`;
+  }
+  $('boxview').innerHTML = g;
+  const scale = rTrue >= 2.6 ? 'Disks drawn at true size (diameter σ).' : `Disks enlarged ×${(r / rTrue).toFixed(1)}; true diameter σ = ${s.a.toFixed(4)} L.`;
+  $('boxnote').innerHTML = `${n} particles in the periodic box L = 1; 8 saved frames from the production run. S<sub>NN</sub>(k<sub>min</sub>)/N = ${fmt(s.snn, 1)}` +
+    (s.snn > DATA.cluster_factor ? ' <span class="flag">(clustered: a droplet)</span>' : ' (uniform)') + `. ${scale}`;
+}
+
+// ---------------------------------------------------------------- tab 1: density scan
+function renderLines() {
+  const S = DATA.states.filter(s => close(s.rho, rho));
+  const B = DATA.bkt.filter(b => close(b.rho, rho)).sort((a, b) => a.E0 - b.E0);
+  const L = DATA.lg.filter(l => close(l.rho, rho)).sort((a, b) => a.T - b.T);
+  $('counts').textContent = `${S.length} states at ρ* = ${rho} · ${S.filter(s => s.snn > DATA.cluster_factor).length} clustered · ` +
+    `${L.length} T* values with a liquid–gas step · ${B.filter(b => b.homog).length} homogeneous BKT points`;
+  $('hint').textContent = 'Click a dot · arrow keys move between states';
+  const W = 560, H = 540, m = { l: 58, r: 20, t: 40, b: 56 };
+  const xd = [-0.04, 0.54], yd = [DATA.T[0] - 0.012, DATA.T[DATA.T.length - 1] + 0.012];
+  const sx = v => m.l + (v - xd[0]) / (xd[1] - xd[0]) * (W - m.l - m.r), sy = v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b);
+  let g = `<text class="title" x="${W / 2}" y="22" text-anchor="middle">N = ${DATA.N} · ρ* = ${rho}</text>`;
+  DATA.E0.forEach(e => g += `<line x1="${sx(e)}" x2="${sx(e)}" y1="${m.t}" y2="${H - m.b}" stroke="var(--grid)"/><text x="${sx(e)}" y="${H - m.b + 18}" text-anchor="middle">${e.toFixed(2)}</text>`);
+  DATA.T.forEach(t => g += `<line x1="${m.l}" x2="${W - m.r}" y1="${sy(t)}" y2="${sy(t)}" stroke="var(--grid)"/><text x="${m.l - 9}" y="${sy(t) + 4}" text-anchor="end">${t.toFixed(2)}</text>`);
+  g += `<text x="${W / 2}" y="${H - 12}" text-anchor="middle">E0*</text><text x="15" y="${H / 2}" text-anchor="middle" transform="rotate(-90 15 ${H / 2})">T*</text>`;
+
+  S.forEach((s, i) => {
+    const x = sx(s.E0), y = sy(s.T), cl = s.snn > DATA.cluster_factor, isSel = sel && close(sel.E0, s.E0) && close(sel.T, s.T);
+    g += `<g class="pt" data-i="${i}"><circle cx="${x}" cy="${y}" r="19" fill="transparent"/>` +
+      (isSel ? `<circle cx="${x}" cy="${y}" r="17" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` : '') +
+      `<circle cx="${x}" cy="${y}" r="12" fill="${ramp(s.inv_eps)}" stroke="${cl ? 'var(--ink)' : 'var(--line)'}" stroke-width="${cl ? 2.5 : 1}"/>` +
+      `<title>E0*=${s.E0} T*=${s.T} · 1/ε=${fmt(s.inv_eps, 2)} · S_NN/N=${fmt(s.snn, 1)}</title></g>`;
+  });
+  if ($('showBKT').checked && B.length) {
+    g += `<polyline fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-dasharray="5 3" points="${B.map(b => `${sx(b.E0)},${sy(b.T)}`).join(' ')}"/>`;
+    B.forEach(b => g += `<rect x="${sx(b.E0) - 4.5}" y="${sy(b.T) - 4.5}" width="9" height="9" transform="rotate(45 ${sx(b.E0)} ${sy(b.T)})" fill="${b.homog ? 'var(--ink)' : 'var(--card)'}" stroke="var(--ink)" stroke-width="1.6"/>`);
+  }
+  if ($('showLG').checked && L.length) {
+    const pts = L.map(l => `${sx((l.lo + l.hi) / 2)},${sy(l.T)}`).join(' ');
+    g += `<polyline fill="none" stroke="var(--card)" stroke-width="7" stroke-linejoin="round" points="${pts}"/><polyline fill="none" stroke="var(--lg)" stroke-width="3.2" stroke-linejoin="round" points="${pts}"/>`;
+    L.forEach(l => g += `<line x1="${sx(l.lo)}" x2="${sx(l.hi)}" y1="${sy(l.T)}" y2="${sy(l.T)}" stroke="var(--card)" stroke-width="6"/><line x1="${sx(l.lo)}" x2="${sx(l.hi)}" y1="${sy(l.T)}" y2="${sy(l.T)}" stroke="var(--lg)" stroke-width="3.2"/>`);
+  }
+  $('map').innerHTML = g;
+  $('map').querySelectorAll('.pt').forEach(el => el.onclick = () => { sel = S[+el.dataset.i]; render(); });
+  if (!sel) sel = S.find(s => close(s.E0, 0.2) && close(s.T, 0.23)) || S[0];
+  panelLines(S, B, L);
+  renderBox();
+}
+
+function panelLines(S, B, L) {
+  const s = sel;
+  const colT = S.filter(x => close(x.E0, s.E0)).sort((a, b) => a.T - b.T);
+  const rowE = S.filter(x => close(x.T, s.T)).sort((a, b) => a.E0 - b.E0);
+  const bk = B.find(b => close(b.E0, s.E0)), lg = L.find(l => close(l.T, s.T));
+  const ch1 = chart({
+    xd: [DATA.E0[0] - 0.02, DATA.E0[DATA.E0.length - 1] + 0.02], yd: [-0.05, 1.1], yticks: [0, 0.25, 0.5, 0.75, 1], xticks: [0, 0.1, 0.2, 0.3, 0.4, 0.5], xlabel: 'E0*',
+    bands: lg ? [[lg.lo, lg.hi]] : [], curves: [{ color: 'var(--muted)', pts: rowE.map(x => [x.E0, x.inv_eps]) }],
+    points: rowE.map(x => ({ x: x.E0, y: x.inv_eps, err: x.sem, fill: ramp(x.inv_eps), sel: close(x.E0, s.E0) }))
+  });
+  const T0 = DATA.T[0] - 0.01, T1 = DATA.T[DATA.T.length - 1] + 0.01;
+  const ch2 = chart({
+    xd: [T0, T1], yd: [-0.05, 1.45], yticks: [0, 0.5, 1], xticks: [0.15, 0.2, 0.25, 0.3, 0.35], xlabel: 'T*',
+    curves: [{ color: 'var(--ink)', dash: '5 4', w: 1.2, pts: [[T0, 4 * T0], [T1, 4 * T1]] }, { color: 'var(--muted)', pts: colT.map(x => [x.T, x.inv_eps]) }],
+    vlines: bk ? [{ x: bk.T, color: bk.homog ? 'var(--ink)' : 'var(--muted)' }] : [],
+    points: colT.map(x => ({ x: x.T, y: x.inv_eps, err: x.sem, fill: ramp(x.inv_eps), sel: close(x.T, s.T) }))
+  });
+  $('panel').innerHTML = `
+    <h2>Selected state</h2>
+    <div class="state">ρ*=${s.rho} · E0*=${s.E0.toFixed(2)} · T*=${s.T.toFixed(2)}</div>
+    <table>
+      <tr><td>1/ε(k<sub>min</sub>)</td><td>${fmt(s.inv_eps)} ± ${fmt(s.sem)}</td></tr>
+      <tr><td>4T* (BKT level)</td><td>${fmt(4 * s.T)}</td></tr>
+      <tr><td>S<sub>QQ</sub>(k<sub>min</sub>)</td><td>${fmt(s.sqq, 4)}</td></tr>
+      <tr><td>S<sub>NN</sub>(k<sub>min</sub>)/N</td><td>${fmt(s.snn, 1)}${s.snn > DATA.cluster_factor ? ' <span class="flag">clustered</span>' : ''}</td></tr>
+      <tr><td>MC acceptance</td><td>${(100 * s.acc).toFixed(1)}%</td></tr>
+    </table>
+    <div class="sec">1/ε along E0* at T* = ${s.T.toFixed(2)}</div>
+    ${ch1}
+    <div class="note">${lg ? `Steepest rise between E0* = ${lg.lo} and ${lg.hi} (+${fmt(lg.jump, 2)}): the liquid–gas line passes here.` : 'No clear rise along E0* at this T*, so no liquid–gas point.'}</div>
+    <div class="sec">1/ε along T* at E0* = ${s.E0.toFixed(2)}</div>
+    ${ch2}
+    <div class="note">${bk ? `1/ε crosses the dashed 4T* line at T* = ${fmt(bk.T)} ${bk.homog ? '(homogeneous: a BKT point).' : '<span class="flag">inside a clustered state, so not a BKT point.</span>'}` : 'No crossing in T* = 0.15–0.35: 1/ε is already below 4T* at T* = 0.15, so T<sub>BKT</sub> is lower than the grid.'}</div>`;
+}
+
+// ---------------------------------------------------------------- tab 2: wide pilot
+function renderPilot() {
+  const P = DATA.pilot, R = P.runs.filter(r => r.init === init), other = P.runs.filter(r => r.init !== init);
+  $('counts').textContent = `${R.length} states, ${init} start · T* from ${P.T[0]} to ${P.T[P.T.length - 1]}, E0* from 0 to ${P.E0[P.E0.length - 1]} · S_QQ(k) reaches kσ = ${P.k[P.k.length - 1].toFixed(1)}`;
+  $('hint').textContent = 'Click a dot · arrow keys move between states · the T* = 0.05 row is not equilibrated';
+  const W = 560, H = 540, m = { l: 58, r: 20, t: 40, b: 56 };
+  const xd = [-0.15, 1.15], yd = [0, 0.6];
+  const sx = v => m.l + (v - xd[0]) / (xd[1] - xd[0]) * (W - m.l - m.r), sy = v => H - m.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - m.t - m.b);
+  let g = `<text class="title" x="${W / 2}" y="22" text-anchor="middle">N = ${DATA.N} · ρ* = ${P.rho} · ${init} start</text>`;
+  P.E0.forEach(e => g += `<line x1="${sx(e)}" x2="${sx(e)}" y1="${m.t}" y2="${H - m.b}" stroke="var(--grid)"/><text x="${sx(e)}" y="${H - m.b + 18}" text-anchor="middle">${e.toFixed(2)}</text>`);
+  P.T.forEach(t => g += `<line x1="${m.l}" x2="${W - m.r}" y1="${sy(t)}" y2="${sy(t)}" stroke="var(--grid)"/><text x="${m.l - 9}" y="${sy(t) + 4}" text-anchor="end">${t.toFixed(2)}</text>`);
+  g += `<text x="${W / 2}" y="${H - 12}" text-anchor="middle">E0*</text><text x="15" y="${H / 2}" text-anchor="middle" transform="rotate(-90 15 ${H / 2})">T*</text>`;
+  R.forEach((r, i) => {
+    const x = sx(r.E0), y = sy(r.T), o = other.find(q => close(q.E0, r.E0) && close(q.T, r.T));
+    const dis = o && Math.abs(r.inv_eps - o.inv_eps) > 0.15;
+    const isSel = sel && close(sel.E0, r.E0) && close(sel.T, r.T);
+    g += `<g class="pt" data-i="${i}"><circle cx="${x}" cy="${y}" r="30" fill="transparent"/>` +
+      (isSel ? `<circle cx="${x}" cy="${y}" r="27" fill="none" stroke="var(--accent)" stroke-width="2.5"/>` : '') +
+      `<circle cx="${x}" cy="${y}" r="22" fill="${ramp(r.inv_eps)}" stroke="var(--line)"/>` +
+      `<text x="${x}" y="${y + 4}" text-anchor="middle" style="fill:${r.inv_eps > 0.55 ? '#1c2230' : '#ffffff'};font-weight:500">${fmt(r.inv_eps, 2)}</text>` +
+      (dis ? `<text x="${x + 20}" y="${y - 14}" style="fill:var(--ink);font-size:17px">×</text>` : '') +
+      `<title>E0*=${r.E0} T*=${r.T} · 1/ε(kmin)=${fmt(r.inv_eps, 2)} · S_NN/N=${fmt(r.snn, 1)}</title></g>`;
+  });
+  $('map').innerHTML = g;
+  $('map').querySelectorAll('.pt').forEach(el => el.onclick = () => { sel = R[+el.dataset.i]; render(); });
+  if (!sel) sel = R.find(r => close(r.E0, 0.5) && close(r.T, 0.25)) || R[0];
+  panelPilot(P);
+  renderBox();
+}
+
+function panelPilot(P) {
+  const s = sel, ks = P.k, kd = [0.15, 4.2];
+  const dh = ks.map(k => [k, k * k / (k * k + 2 * Math.PI * P.rho / s.T)]);
+  const c1 = chart({ xd: kd, yd: [0, 2.7], yticks: [0, 0.5, 1, 1.5, 2, 2.5], xticks: [0.5, 1, 2, 3, 4], xlabel: 'kσ',
+    hlines: [{ y: 1 }], curves: [{ color: 'var(--muted)', dash: '5 4', w: 1.4, pts: dh }, { color: 'var(--lg)', w: 1.8, pts: ks.map((k, i) => [k, s.sqq_k[i]]) }] });
+  const c2 = chart({ xd: kd, yd: [-0.5, 1.2], yticks: [-0.4, 0, 0.4, 0.8, 1.2], xticks: [0.5, 1, 2, 3, 4], xlabel: 'kσ',
+    hlines: [{ y: 0 }], curves: [{ color: 'var(--accent)', w: 1.8, pts: ks.map((k, i) => [k, s.inv_k[i]]) }] });
+  const c3 = chart({ xd: kd, yd: [0.05, 80], ylog: true, xlog: true, yticks: [0.1, 1, 10], xticks: [0.2, 0.5, 1, 2, 4], xlabel: 'kσ',
+    hlines: [{ y: 1 }], curves: [{ color: 'var(--ink)', w: 1.8, pts: ks.map((k, i) => [k, Math.max(s.snn_k[i], 0.051)]) }] });
+  $('panel').innerHTML = `
+    <h2>Selected state</h2>
+    <div class="state">${s.init} start · E0*=${s.E0.toFixed(2)} · T*=${s.T.toFixed(2)}</div>
+    <table>
+      <tr><td>1/ε(k<sub>min</sub>)</td><td>${fmt(s.inv_eps)} ± ${fmt(s.sem)}</td></tr>
+      <tr><td>4T* (BKT level)</td><td>${fmt(4 * s.T)}</td></tr>
+      <tr><td>S<sub>NN</sub>(k<sub>min</sub>)/N</td><td>${fmt(s.snn, 1)}${s.snn > DATA.cluster_factor ? ' <span class="flag">clustered</span>' : ''}</td></tr>
+      <tr><td>MC acceptance</td><td>${(100 * s.acc).toFixed(1)}%</td></tr>
+    </table>
+    <div class="sec">S<sub>QQ</sub>(k)/N</div>${c1}
+    <div class="note">Magenta: this state. Dashed: Debye–Hückel plasma at the same T* and ρ*. A screening plasma follows the dashed curve up to 1; a condensed state stays far below it at small k, then overshoots 1 near kσ ≈ 2.5–3.5 (charge alternation).</div>
+    <div class="sec">1/ε(k)</div>${c2}
+    <div class="note">A conductor gives 1/ε → 0 as k → 0. A neutral droplet gives about 0.9 at k<sub>min</sub>, because it barely fluctuates in charge at the box scale.</div>
+    <div class="sec">S<sub>NN</sub>(k)/N</div>${c3}
+    <div class="note">S<sub>NN</sub>(k<sub>min</sub>) ∝ N with a steep falloff is the droplet (coexistence) signature.</div>`;
+}
+
+function render() { mode === 'lines' ? renderLines() : renderPilot(); }
+
+document.addEventListener('keydown', e => {
+  if (!sel || e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
+  if (!step) return;
+  const Es = mode === 'lines' ? DATA.E0 : DATA.pilot.E0, Ts = mode === 'lines' ? DATA.T : DATA.pilot.T;
+  const ie = Es.findIndex(v => close(v, sel.E0)) + step[0], it = Ts.findIndex(v => close(v, sel.T)) + step[1];
+  const next = mode === 'lines'
+    ? DATA.states.find(s => close(s.rho, rho) && close(s.E0, Es[ie]) && close(s.T, Ts[it]))
+    : DATA.pilot.runs.find(r => r.init === init && close(r.E0, Es[ie]) && close(r.T, Ts[it]));
+  if (next) { e.preventDefault(); sel = next; render(); }
+});
+
+renderLegend(); render();
+</script>
