@@ -226,5 +226,3 @@ __marimo__/
 # 9.21 scan: extracted raw data (~1 GB, files near GitHub's 100 MB limit); the .tar.gz archives are tracked
 9.21_Density Correlation/Data/scan_921_*/
 
-# 11.8 BKT inspector: generated snapshot files (65 MB), rebuilt by make_inspector.py from the raw 11.8 data
-11.8_BKT_Transition/web/data/

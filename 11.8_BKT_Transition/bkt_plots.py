@@ -3,9 +3,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
+from scipy.ndimage import distance_transform_edt
 
 HERE = Path(__file__).resolve().parent
 RES = HERE / 'Results'
@@ -14,9 +14,14 @@ REF = Path('/Users/kai/BKT-plasma2D/9.6_Summary/Transition Temperature data/op_d
 INK, INK2, GRID = '#0b0b0b', '#52514e', '#e4e3df'
 BLUE, ORANGE, AQUA = '#2a78d6', '#eb6834', '#1baf7a'
 SEQ = ['#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b']
-STATE_COLORS = {'D': BLUE, 'M': '#c9c8c2', 'C': ORANGE, 'drop': '#52514e', 'drift': '#ffffff'}
-STATE_NAMES = {'D': 'D: dielectric, 1/ε > 4T*', 'M': 'M: on the line (within 2σ)', 'C': 'C: conducting, 1/ε < 4T*',
-               'drop': 'droplet (cluster ≥ N/2 in some snapshot)', 'drift': 'drifting run (halves disagree)'}
+
+# Phase colours sampled from the reference phase diagram (superfluid / vortex gas / vortex liquid)
+PHASE = {
+    'diel':   dict(fill='#c7a8f7', text='#6935af', name='dielectric gas (insulator)'),
+    'plasma': dict(fill='#d6d6d6', text='#4e4e4e', name='plasma (conductor)'),
+    'liquid': dict(fill='#bcdffa', text='#1e4988', name='liquid (droplet)'),
+}
+RED = '#f60709'
 
 plt.rcParams.update({'font.size': 10, 'axes.edgecolor': INK2, 'axes.labelcolor': INK, 'xtick.color': INK2,
                      'ytick.color': INK2, 'axes.spines.top': False, 'axes.spines.right': False,
@@ -31,7 +36,7 @@ def load():
 
 
 def fig_cuts(st, li, rhos=(0.001, 0.00631, 0.0251), e0s=(0.0, 0.1, 0.2), save=True):
-    """1/eps(k_min) vs T* along fixed (rho*, E0*), with the 4T* line. Hollow = not valid (droplet/drift)."""
+    """1/eps(k_min) vs T* along fixed (rho*, E0*), with the 4T* line. Hollow = droplet (excluded)."""
     fig, axes = plt.subplots(1, len(rhos), figsize=(4.2 * len(rhos), 3.6), sharey=True)
     T = np.linspace(0.04, 0.31, 2)
     for ax, rho in zip(axes, rhos):
@@ -52,7 +57,7 @@ def fig_cuts(st, li, rhos=(0.001, 0.00631, 0.0251), e0s=(0.0, 0.1, 0.2), save=Tr
         ax.set_ylim(-0.1, 1.08)
     axes[0].set_ylabel('1/ε  at k_min = 2π/L')
     h, lab = axes[0].get_legend_handles_labels()
-    h += [Line2D([], [], marker='o', ls='', mfc='white', mec=INK2, label='droplet or drifting (excluded)'),
+    h += [Line2D([], [], marker='o', ls='', mfc='white', mec=INK2, label='droplet (excluded)'),
           Line2D([], [], marker='D', ls='', mfc='white', mec=INK, label='T_BKT (crossing)')]
     fig.legend(handles=h, loc='lower center', ncol=6, bbox_to_anchor=(0.5, -0.1), fontsize=9)
     fig.suptitle('1/ε against the 4T* line, N = 50', color=INK, y=1.02)
@@ -61,36 +66,104 @@ def fig_cuts(st, li, rhos=(0.001, 0.00631, 0.0251), e0s=(0.0, 0.1, 0.2), save=Tr
     return fig
 
 
+def phase_boundaries(st, li, rho, x):
+    """Droplet boundary T_d(x) and top of the dielectric region T_top(x) on a fine E0* grid x.
+
+    T_d: per E0* column, half a cell above the highest droplet state that is connected to the
+    bottom of the column (isolated droplet states higher up are ignored).
+    T_top: T_BKT where the line passes the criterion; past the last BKT column it closes onto
+    T_d halfway to the next E0* point (the dashed, unmeasured end of the red line).
+    """
+    g = st[np.isclose(st.rho_star, rho)]
+    Es = np.sort(g.E0_star.unique())
+    Ts = np.sort(g.T_star.unique())
+    dT = Ts[1] - Ts[0]
+    Td = []
+    for e in Es:
+        col = g[np.isclose(g.E0_star, e)].sort_values('T_star')
+        drop = col.droplet.values
+        k = 0
+        while k < len(drop) and drop[k]:
+            k += 1
+        Td.append(Ts[0] - dT / 2 if k == 0 else Ts[k - 1] + dT / 2)
+    Td = np.array(Td)
+    td = np.interp(x, Es, Td)
+
+    L = li[np.isclose(li.rho_star, rho)].sort_values('E0_star')
+    ok = (L.verdict == 'BKT').values
+    n = 0                                    # BKT columns contiguous from E0* = 0
+    while n < len(ok) and ok[n]:
+        n += 1
+    top = td.copy()
+    e_end = e_mid = None
+    if n:
+        Eb, Tb = Es[:n], L.T_BKT.values[:n]
+        e_end = Eb[-1]
+        e_mid = e_end + (Es[n] - e_end) / 2 if n < len(Es) else e_end
+        inside = x <= e_end
+        top[inside] = np.interp(x[inside], Eb, Tb)
+        taper = (x > e_end) & (x <= e_mid)
+        if taper.any():
+            t_end, t_mid = np.interp(e_end, Eb, Tb), np.interp(e_mid, Es, Td)
+            top[taper] = t_end + (x[taper] - e_end) / (e_mid - e_end) * (t_mid - t_end)
+    top = np.maximum(top, td)
+    return td, top, (n, e_end, e_mid), L.iloc[:n]
+
+
 def fig_maps(st, li, save=True):
-    """Every state labelled D / M / C / droplet / drift, one panel per rho*, with T_BKT on top."""
-    order = ['D', 'M', 'C', 'drop', 'drift']
-    cmap = ListedColormap([STATE_COLORS[k] for k in order])
-    norm = BoundaryNorm(np.arange(len(order) + 1) - 0.5, len(order))
+    """Phase regions per rho*: liquid (droplet) / dielectric gas / plasma, with T_BKT in red."""
     rhos = sorted(st.rho_star.unique())
+    x = np.linspace(-0.01, 0.51, 1041)
+    T0, T1 = 0.045, 0.305
     fig, axes = plt.subplots(3, 4, figsize=(15, 10.5), sharex=True, sharey=True)
     for ax, rho in zip(axes.flat, rhos):
-        g = st[np.isclose(st.rho_star, rho)]
-        idx = {k: i for i, k in enumerate(order)}
-        P = g.pivot(index='T_star', columns='E0_star', values='label').apply(lambda col: col.map(idx))
-        E, T = P.columns.values, P.index.values
-        dE, dT = E[1] - E[0], T[1] - T[0]
-        ax.pcolormesh(np.r_[E - dE / 2, E[-1] + dE / 2], np.r_[T - dT / 2, T[-1] + dT / 2], P.values.astype(float),
-                      cmap=cmap, norm=norm, edgecolors='white', linewidth=0.4)
-        b = li[np.isclose(li.rho_star, rho) & (li.verdict == 'BKT')].sort_values('E0_star')
-        ax.plot(b.E0_star, b.T_BKT, '-', color=INK, lw=1.4)
-        ax.plot(b.E0_star, b.T_BKT, 'o', ms=3.5, mfc='white', mec=INK, mew=1)
-        ax.set_title(f'ρ* = {rho:g}', color=INK, fontsize=10)
+        td, top, (n, e_end, e_mid), B = phase_boundaries(st, li, rho, x)
+        td_c, top_c = np.clip(td, T0, T1), np.clip(top, T0, T1)
+        ax.fill_between(x, T0, td_c, color=PHASE['liquid']['fill'], lw=0)
+        ax.fill_between(x, td_c, top_c, color=PHASE['diel']['fill'], lw=0)
+        ax.fill_between(x, top_c, T1, color=PHASE['plasma']['fill'], lw=0)
+        if n:
+            ax.plot(B.E0_star, B.T_BKT, '-', color=RED, lw=2.2, solid_capstyle='round', zorder=3)
+            if e_mid > e_end:
+                xs = np.linspace(e_end, e_mid, 20)
+                ax.plot(xs, np.interp(xs, x, top), '--', color=RED, lw=1.6, zorder=3)
+        # region labels at the point deepest inside each region
+        ys = np.linspace(T0, T1, 261)
+        X, Y = np.meshgrid(x, ys)
+        TD, TOP = np.interp(X, x, td), np.interp(X, x, top)
+        masks = {'liquid': Y < TD, 'diel': (Y >= TD) & (Y < TOP), 'plasma': Y >= np.maximum(TD, TOP)}
+        word = {'liquid': 'liquid', 'diel': 'dielectric\ngas', 'plasma': 'plasma'}
+        sx, sy = (x[-1] - x[0]) / (len(x) - 1), (T1 - T0) / (len(ys) - 1)
+        for k, m in masks.items():
+            if m.sum() < 400:
+                continue
+            # distance (in axis-fraction units) to the region edge or the panel border,
+            # so the label sits in the visual middle of the region
+            vis = m & (X >= 0) & (X <= 0.5) & (Y >= 0.05) & (Y <= 0.30)
+            pad = np.pad(vis, 1, constant_values=False)
+            dist = distance_transform_edt(pad, sampling=(sy / 0.25, sx / 0.5))[1:-1, 1:-1]
+            if dist.max() < 0.07:
+                continue
+            i, j = np.unravel_index(np.argmax(dist), dist.shape)
+            ax.text(x[j], ys[i], word[k], color=PHASE[k]['text'], ha='center', va='center',
+                    fontsize=10, fontweight='medium', zorder=4)
+        ax.set_xlim(0, 0.5)
+        ax.set_ylim(0.05, 0.30)
         ax.grid(False)
+        ax.set_title(f'ρ* = {rho:g}', color=INK, fontsize=10)
+        for s in ('top', 'right'):
+            ax.spines[s].set_visible(True)
     for ax in axes[-1]:
         ax.set_xlabel('E0*')
     for ax in axes[:, 0]:
         ax.set_ylabel('T*')
     leg = axes.flat[-1]
     leg.axis('off')
-    hs = [Patch(fc=STATE_COLORS[k], ec=INK2 if k == 'drift' else 'none', label=STATE_NAMES[k]) for k in order]
-    hs.append(Line2D([], [], color=INK, marker='o', mfc='white', label='T_BKT (lines that pass the criterion)'))
-    leg.legend(handles=hs, loc='center', fontsize=9.5)
-    fig.suptitle('State labels and the BKT line, N = 50 (cells: ΔT* = 0.01, ΔE0* = 0.02)', color=INK, y=0.995)
+    hs = [Patch(fc=PHASE[k]['fill'], ec='none', label=PHASE[k]['name']) for k in ('diel', 'plasma', 'liquid')]
+    hs += [Line2D([], [], color=RED, lw=2.2, label='T_BKT  (1/ε = 4T*)'),
+           Line2D([], [], color=RED, lw=1.6, ls='--', label='end of the BKT line (not measured)')]
+    leg.legend(handles=hs, loc='center', fontsize=10)
+    fig.suptitle('Phase regions and the BKT line, N = 50', color=INK, y=0.995)
     fig.tight_layout()
     if save:
         fig.savefig(RES / 'fig2_state_maps.png')

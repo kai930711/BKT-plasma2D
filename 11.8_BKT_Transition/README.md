@@ -7,7 +7,7 @@ Raw data: `/Users/kai/Downloads/11.8.tar`, unpacked to `/Users/kai/Downloads/11.
 
 ## Criterion (in one paragraph)
 d = 1/ε(k_min) − 4T*, with 1/ε = 1 − κ S_QQ(m²=1)/(2π), S_QQ without 1/N, L = 1. A state counts only if no
-snapshot has a cluster (r < 1.5σ) holding ≥ N/2 particles and its two half-runs agree within 3σ. Valid states are
+snapshot has a cluster (r < 1.5σ) holding ≥ N/2 particles (no drift check: it never moved T_BKT). Valid states are
 labelled D (d > 2σ), C (d < −2σ) or M. A (ρ*, E0*) line has a BKT transition if its D/C labels read D…D C…C going up
 in T* with no excluded state inside the bracket; T_BKT is the zero of a weighted line fit of d(T*) across the bracket.
 Full statement: the docstring of `bkt_criterion.py` and section "The criterion" of the notebook.
@@ -28,7 +28,7 @@ Published page: https://claude.ai/artifact/B5ehEgUJU6xuZNYwFutUK3 (private to yo
 - Local use: `/opt/anaconda3/bin/python -m http.server 8811 --directory web`, then open http://localhost:8811
   (opening the file directly cannot load the snapshots).
 - Republishing needs two publishes (65 MB of snapshot files > 64 MB per publish).
-- `web/data/` is not in git (65 MB, generated). Rebuild it with `make_inspector.py` after unpacking the raw data.
+- `web/data/` (65 MB, generated) is in git so the page works from a clone; `make_inspector.py` rebuilds it from the raw data.
 
 ## Running
 ```

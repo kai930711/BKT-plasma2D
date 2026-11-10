@@ -9,10 +9,11 @@ THE CRITERION
 Order parameter, per state:  d = 1/eps(k_min) - 4 T*,  sigma = block error of 1/eps.
 (1/eps = 1 - kappa S_QQ(m^2=1) / (2 pi), S_QQ with no 1/N, L = 1.)
 
-Step 1. A state is VALID only if
-        (a) homogeneous: in none of its 100 snapshots does one cluster (bond r < 1.5 sigma)
-            hold DROPLET_FRAC = half of the particles or more (no droplet, not even part-time), and
-        (b) equilibrated: first-half and second-half 1/eps agree within DRIFT_Z combined sigma.
+Step 1. A state is VALID only if it is homogeneous: in none of its 100 snapshots does one
+        cluster (bond r < 1.5 sigma) hold DROPLET_FRAC = half of the particles or more
+        (no droplet, not even part-time).
+        (A half-run drift check exists but is off by default, DRIFT_Z = None: it only ever
+        affected 3 lines and never moved T_BKT.)
 Step 2. Each valid state gets a label
         D (dielectric, pairs bound)   if d > +Z sigma
         C (conducting, free charges)  if d < -Z sigma
@@ -35,7 +36,7 @@ import pandas as pd
 HERE = Path(__file__).resolve().parent
 Z = 2.0             # significance of D / C labels, in sigma
 DROPLET_FRAC = 0.5  # largest cluster holding >= half the particles = droplet
-DRIFT_Z = 3.0       # half-vs-half disagreement (in combined sigma) that marks a drifting run
+DRIFT_Z = None      # off; set e.g. 3.0 to exclude runs whose two halves disagree by > 3 sigma
 
 
 def label_states(df, z=Z, droplet_frac=DROPLET_FRAC, drift_z=DRIFT_Z):
@@ -44,7 +45,7 @@ def label_states(df, z=Z, droplet_frac=DROPLET_FRAC, drift_z=DRIFT_Z):
     df['zscore'] = df.d / df.inv_eps_sem
     df['droplet'] = df.lc_frac_max >= droplet_frac
     s12 = np.hypot(df.inv_eps_h1_sem, df.inv_eps_h2_sem)
-    df['drift'] = (df.inv_eps_h2 - df.inv_eps_h1).abs() > drift_z * s12
+    df['drift'] = False if drift_z is None else (df.inv_eps_h2 - df.inv_eps_h1).abs() > drift_z * s12
     df['valid'] = ~df.droplet & ~df.drift
     lab = np.where(df.zscore > z, 'D', np.where(df.zscore < -z, 'C', 'M'))
     df['label'] = np.where(df.valid, lab, np.where(df.droplet, 'drop', 'drift'))
