@@ -1,0 +1,527 @@
+<title>BKT Run Inspector</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: instrument console. Density rail on top, state map beside the live box, cut charts underneath. */
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --ink: #14161a; --ink2: #555b66; --ink3: #858b96; --line: #e1e4e9;
+  --accent: #2a78d6;
+  --st-d: #2a78d6; --st-m: #c3c7ce; --st-c: #eb6834; --st-drop: #474b54; --st-drift: #ffffff;
+  --vp-bg: #0e1116; --vp-ink: #d9dde4; --q-pos: #f2b134; --q-neg: #9b8cf0; --vp-bond: rgba(255,255,255,.32);
+  --f-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111317; --surface: #191c21; --ink: #eceef2; --ink2: #a8aeb8; --ink3: #7b818c; --line: #2b2f36;
+  --accent: #5598e7;
+  --st-d: #3987e5; --st-m: #868c96; --st-c: #d95926; --st-drop: #353941; --st-drift: #191c21;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #191c21; --ink: #eceef2; --ink2: #a8aeb8; --ink3: #7b818c; --line: #2b2f36;
+  --accent: #5598e7;
+  --st-d: #3987e5; --st-m: #868c96; --st-c: #d95926; --st-drop: #353941; --st-drift: #191c21;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 16px; }
+h1, h2 { font-family: var(--f-display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.02rem; }
+.sub { color: var(--ink2); margin: 2px 0 0; max-width: 80ch; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+header { display: flex; flex-direction: column; gap: 4px; }
+
+.criterion { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.criterion div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; min-width: 0; }
+.criterion b { display: block; font: 600 .72rem/1.2 var(--f-body); text-transform: uppercase; letter-spacing: .06em; color: var(--ink3); margin-bottom: 4px; }
+.criterion span { color: var(--ink2); font-size: .86rem; }
+
+.rail { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rail .lab { font: 600 .72rem var(--f-body); text-transform: uppercase; letter-spacing: .06em; color: var(--ink3); margin-right: 4px; }
+.chip { font: 500 .84rem var(--f-mono); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 5px 11px; cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; }
+.chip small { color: var(--ink3); font-size: .74rem; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip[aria-pressed="true"] small { color: var(--bg); opacity: .7; }
+.chip:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.meta { color: var(--ink2); font-size: .84rem; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--ink2); }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; border: 1px solid transparent; }
+.legend .sw-drift { background: repeating-linear-gradient(45deg, var(--surface) 0 3px, var(--ink3) 3px 4px); border-color: var(--ink3); }
+.legend .ln { width: 18px; height: 0; border-top: 2px solid var(--ink); border-radius: 0; margin-right: 5px; vertical-align: 3px; }
+
+.mapbox { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; }
+.mapbox canvas { width: 100%; height: 100%; display: block; cursor: crosshair; border-radius: 6px; }
+.verdict { border-left: 3px solid var(--ink3); padding: 6px 10px; background: var(--bg); border-radius: 0 6px 6px 0; font-size: .88rem; }
+.verdict.ok { border-left-color: var(--st-d); }
+.verdict.no { border-left-color: var(--st-c); }
+
+.viewport { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; background: var(--vp-bg); border-radius: 8px; overflow: hidden; }
+.viewport canvas { width: 100%; height: 100%; display: block; }
+.vp-info { position: absolute; left: 10px; top: 8px; right: 10px; color: var(--vp-ink); font: 500 .76rem/1.45 var(--f-mono); pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.vp-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--vp-ink); font-size: .9rem; text-align: center; padding: 24px; }
+.vp-key { position: absolute; left: 10px; bottom: 8px; color: var(--vp-ink); font: .74rem var(--f-mono); display: flex; gap: 12px; pointer-events: none; }
+.vp-key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: 0; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: .84rem; color: var(--ink2); }
+.controls label { display: inline-flex; gap: 6px; align-items: center; }
+.controls select, .controls button { font: 500 .84rem var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.controls button.play { min-width: 74px; background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.controls input[type=range] { flex: 1 1 140px; min-width: 100px; accent-color: var(--accent); }
+
+.readout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.kv { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: .86rem; min-width: 0; }
+.kv span:first-child { color: var(--ink2); white-space: nowrap; }
+.kv span:last-child { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 600 .8rem var(--f-body); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); }
+.pill i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.flag-ok { color: var(--ink2); }
+.flag-bad { color: var(--st-c); font-weight: 600; }
+
+.charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--ink2); font: 11px var(--f-body); }
+svg.chart .ttl { fill: var(--ink); font-weight: 600; }
+
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); font: .78rem/1.4 var(--f-mono); padding: 6px 8px; border-radius: 6px; max-width: 260px; }
+.hint { color: var(--ink3); font-size: .8rem; }
+kbd { font: .74rem var(--f-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); color: var(--ink2); }
+
+@media (max-width: 980px) { .grid, .charts { grid-template-columns: minmax(0, 1fr); } .criterion { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .criterion, .readout { grid-template-columns: minmax(0, 1fr); } h1 { font-size: 1.35rem; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>BKT Run Inspector</h1>
+    <p class="sub">11.8 scan, N = 50: 11 densities, T* 0.05–0.30 in steps of 0.01, E0* 0–0.50 in steps of 0.02. Click any cell to watch that run's box and check its label.</p>
+  </header>
+
+  <section class="criterion" aria-label="How states are labelled">
+    <div><b>Order parameter</b><span>d = 1/ε(k<sub>min</sub>) − 4T*, with 1/ε = 1 − κ S<sub>QQ</sub>/2π (no 1/N, L = 1).</span></div>
+    <div><b>Run counts if</b><span>no snapshot has a cluster (r &lt; 1.5σ) with ≥ N/2 particles, and both half-runs agree within 3σ.</span></div>
+    <div><b>Label</b><span>D if d &gt; 2σ (dielectric), C if d &lt; −2σ (conducting), M if within 2σ of the line.</span></div>
+    <div><b>BKT line</b><span>labels read D…D then C…C going up in T*, no excluded run in the bracket; T<sub>BKT</sub> = zero of a fit of d.</span></div>
+  </section>
+
+  <nav class="rail" id="rail" aria-label="Density"><span class="lab">ρ*</span></nav>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="map-h">
+      <div class="card-head"><h2 id="map-h">State map</h2><span class="meta num" id="map-meta"></span></div>
+      <div class="legend" id="legend"></div>
+      <div class="mapbox"><canvas id="map" tabindex="0" aria-label="State map: T* against E0*. Use arrow keys to move."></canvas></div>
+      <div class="verdict" id="verdict"></div>
+      <div class="hint"><kbd>←</kbd><kbd>→</kbd> E0* &nbsp; <kbd>↑</kbd><kbd>↓</kbd> T* &nbsp; <kbd>Space</kbd> play / pause &nbsp; <kbd>,</kbd><kbd>.</kbd> step frames</div>
+    </section>
+
+    <section class="card" aria-labelledby="box-h">
+      <div class="card-head"><h2 id="box-h">Box</h2><span class="pill" id="pill"></span></div>
+      <div class="viewport" id="vpwrap">
+        <canvas id="vp" aria-label="Animated box snapshot"></canvas>
+        <div class="vp-info" id="vpinfo"></div>
+        <div class="vp-key"><span><i style="background:var(--q-pos)"></i>+q</span><span><i style="background:var(--q-neg)"></i>−q</span><span><i style="background:transparent;border:1.5px solid #fff"></i>largest cluster</span></div>
+        <div class="vp-msg" id="vpmsg" hidden></div>
+      </div>
+      <div class="controls">
+        <button class="play" id="play" type="button">Pause</button>
+        <input type="range" id="frame" min="0" max="33" value="0" aria-label="Frame">
+        <label>Speed <select id="speed"><option value="3">3 fps</option><option value="8" selected>8 fps</option><option value="16">16 fps</option></select></label>
+        <label>Zoom <select id="zoom"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option></select></label>
+        <label>Centre <select id="centre"><option value="cluster" selected>Biggest cluster</option><option value="box">Box</option></select></label>
+        <label><input type="checkbox" id="bonds" checked> Bonds</label>
+      </div>
+      <div class="readout" id="readout"></div>
+    </section>
+  </div>
+
+  <div class="charts">
+    <section class="card"><div class="card-head"><h2>1/ε along T*</h2><span class="meta num" id="cutT-meta"></span></div><svg class="chart" id="cutT" viewBox="0 0 560 300" role="img" aria-label="1/epsilon against T* at the selected E0*"></svg></section>
+    <section class="card"><div class="card-head"><h2>1/ε along E0*</h2><span class="meta num" id="cutE-meta"></span></div><svg class="chart" id="cutE" viewBox="0 0 560 300" role="img" aria-label="1/epsilon against E0* at the selected T*"></svg></section>
+  </div>
+  <p class="hint">Dashed line: 4T*, the universal BKT value. Filled points count toward the criterion; hollow points are excluded runs (droplet or drifting). The shaded band is the crossing bracket on lines that pass. Snapshots show every third stored frame (34 per run); the box is periodic.</p>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const LABELS = ['D', 'M', 'C', 'drop', 'drift'];
+const LABEL_TEXT = ['D · dielectric', 'M · on the line', 'C · conducting', 'Droplet (excluded)', 'Drifting (excluded)'];
+const VERDICT_TEXT = {
+  BKT: 'BKT transition',
+  no_dielectric: 'No BKT: no dielectric gas state on this line (the gas condenses before pairs bind).',
+  all_droplet: 'No BKT: every run on this line is a droplet.',
+  droplet_in_bracket: 'Ambiguous: an excluded run sits inside the crossing bracket.',
+  non_monotone: 'Ambiguous: labels go C then D again.',
+  no_conductor: 'No BKT up to T* = 0.30: dielectric throughout.'
+};
+const nT = DATA.T.length, nE = DATA.E0.length, N = DATA.N;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const stColor = k => css(['--st-d', '--st-m', '--st-c', '--st-drop', '--st-drift'][k]);
+const fmt = (v, n = 4) => v == null ? '—' : v.toFixed(n);
+const sgn = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
+
+const state = { r: 0, t: 0, e: 0, frame: 0, playing: true };
+const cache = new Map();
+let lastTick = 0;
+
+// ---------- selection & hash ----------
+function idx() { return state.t * nE + state.e; }
+function D() { return DATA.densities[state.r]; }
+function setHash() { try { history.replaceState(null, '', `#r${state.r}-t${state.t}-e${state.e}`); } catch (e) {} }
+function readHash() {
+  const m = /^#r(\d+)-t(\d+)-e(\d+)$/.exec(location.hash || '');
+  if (!m) return false;
+  const [r, t, e] = m.slice(1).map(Number);
+  if (r < DATA.densities.length && t < nT && e < nE) { Object.assign(state, { r, t, e }); return true; }
+  return false;
+}
+function select(r, t, e, keepFrame) {
+  const densityChanged = r !== state.r;
+  Object.assign(state, { r, t: Math.max(0, Math.min(nT - 1, t)), e: Math.max(0, Math.min(nE - 1, e)) });
+  if (!keepFrame) state.frame = 0;
+  setHash();
+  if (densityChanged) renderRail();
+  renderAll();
+  ensureData(state.r);
+}
+
+// ---------- density rail ----------
+function renderRail() {
+  const rail = $('rail');
+  rail.querySelectorAll('.chip').forEach(c => c.remove());
+  DATA.densities.forEach((d, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.type = 'button';
+    b.setAttribute('aria-pressed', String(i === state.r));
+    const nb = d.lines.verdict.filter(v => v === 'BKT').length;
+    b.innerHTML = `${d.rho}<small>${nb} BKT</small>`;
+    b.title = `ρ* = ${d.rho}: BKT on ${nb} of ${nE} E0* lines`;
+    b.onclick = () => select(i, state.t, state.e, true);
+    rail.appendChild(b);
+  });
+}
+
+// ---------- legend ----------
+function renderLegend() {
+  const items = [[0, 'D'], [1, 'M'], [2, 'C'], [3, 'droplet'], [4, 'drifting']];
+  $('legend').innerHTML = items.map(([k, t]) => k === 4
+    ? `<span><i class="sw-drift"></i>${t}</span>`
+    : `<span><i style="background:${stColor(k)}"></i>${t}</span>`).join('') +
+    `<span><i class="ln"></i>T<sub>BKT</sub></span><span><i style="border:2px solid var(--ink);background:transparent"></i>selected</span>`;
+}
+
+// ---------- state map ----------
+const mapGeom = { L: 46, R: 10, T: 10, B: 38 };
+function sizeCanvas(cv) {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: r.width, h: r.height };
+}
+function mapCell(w, h) {
+  const g = mapGeom, cw = (w - g.L - g.R) / nE, ch = (h - g.T - g.B) / nT;
+  return { cw, ch, x: e => g.L + e * cw, y: t => h - g.B - (t + 1) * ch };
+}
+function renderMap() {
+  const cv = $('map'), { ctx, w, h } = sizeCanvas(cv), d = D(), g = mapGeom, c = mapCell(w, h);
+  ctx.clearRect(0, 0, w, h);
+  const ink3 = css('--ink3'), ink = css('--ink'), surf = css('--surface');
+  for (let t = 0; t < nT; t++) for (let e = 0; e < nE; e++) {
+    const k = d.label[t * nE + e], x = c.x(e), y = c.y(t);
+    ctx.fillStyle = stColor(k); ctx.fillRect(x + .5, y + .5, c.cw - 1, c.ch - 1);
+    if (k === 4) {
+      ctx.save(); ctx.beginPath(); ctx.rect(x + .5, y + .5, c.cw - 1, c.ch - 1); ctx.clip();
+      ctx.strokeStyle = ink3; ctx.lineWidth = 1;
+      for (let s = -c.ch; s < c.cw; s += 4) { ctx.beginPath(); ctx.moveTo(x + s, y + c.ch); ctx.lineTo(x + s + c.ch, y); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  // BKT line
+  const pts = [];
+  d.lines.verdict.forEach((v, e) => { if (v === 'BKT') pts.push([e, d.lines.T_BKT[e]]); });
+  const T0 = DATA.T[0], dT = DATA.T[1] - DATA.T[0];
+  const yT = T => h - g.B - ((T - T0) / dT + .5) * c.ch;
+  const xE = e => c.x(e) + c.cw / 2;
+  if (pts.length) {
+    ctx.strokeStyle = surf; ctx.lineWidth = 4; ctx.beginPath();
+    pts.forEach(([e, T], i) => i ? ctx.lineTo(xE(e), yT(T)) : ctx.moveTo(xE(e), yT(T))); ctx.stroke();
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.8; ctx.beginPath();
+    pts.forEach(([e, T], i) => i ? ctx.lineTo(xE(e), yT(T)) : ctx.moveTo(xE(e), yT(T))); ctx.stroke();
+    pts.forEach(([e, T]) => { ctx.beginPath(); ctx.arc(xE(e), yT(T), 2.6, 0, 7); ctx.fillStyle = surf; ctx.fill(); ctx.lineWidth = 1.3; ctx.strokeStyle = ink; ctx.stroke(); });
+  }
+  // selection
+  ctx.lineWidth = 2.5; ctx.strokeStyle = ink;
+  ctx.strokeRect(c.x(state.e) - 1, c.y(state.t) - 1, c.cw + 2, c.ch + 2);
+  ctx.lineWidth = 1; ctx.strokeStyle = surf;
+  ctx.strokeRect(c.x(state.e) + 1.5, c.y(state.t) + 1.5, c.cw - 3, c.ch - 3);
+  // axes
+  ctx.fillStyle = css('--ink2'); ctx.font = `11px ${css('--f-body')}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let e = 0; e < nE; e += 5) ctx.fillText(DATA.E0[e].toFixed(1), xE(e), h - g.B + 6);
+  ctx.fillText('E0*', g.L + (w - g.L - g.R) / 2, h - g.B + 21);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let t = 0; t < nT; t += 5) ctx.fillText(DATA.T[t].toFixed(2), g.L - 6, c.y(t) + c.ch / 2);
+  ctx.save(); ctx.translate(11, g.T + (h - g.T - g.B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('T*', 0, 0); ctx.restore();
+  const nb = d.lines.verdict.filter(v => v === 'BKT').length;
+  $('map-meta').textContent = `ρ* = ${d.rho} · σ = ${d.a.toFixed(4)} L · BKT on ${nb} / ${nE} lines`;
+}
+function mapHit(ev) {
+  const cv = $('map'), r = cv.getBoundingClientRect(), c = mapCell(r.width, r.height);
+  const x = ev.clientX - r.left, y = ev.clientY - r.top;
+  const e = Math.floor((x - mapGeom.L) / c.cw), t = Math.floor((r.height - mapGeom.B - y) / c.ch);
+  return (e >= 0 && e < nE && t >= 0 && t < nT) ? { t, e } : null;
+}
+
+// ---------- verdict & readout ----------
+function renderVerdict() {
+  const d = D(), e = state.e, v = d.lines.verdict[e], el = $('verdict');
+  el.className = 'verdict ' + (v === 'BKT' ? 'ok' : 'no');
+  if (v === 'BKT') {
+    el.innerHTML = `<b>E0* = ${DATA.E0[e].toFixed(2)}: BKT transition</b> at T<sub>BKT</sub> = <span class="num">${fmt(d.lines.T_BKT[e])} ± ${fmt(d.lines.T_err[e])}</span>, bracket <span class="num">[${d.lines.T_lo[e].toFixed(2)}, ${d.lines.T_hi[e].toFixed(2)}]</span>.`;
+  } else {
+    el.innerHTML = `<b>E0* = ${DATA.E0[e].toFixed(2)}:</b> ${VERDICT_TEXT[v] || v}`;
+  }
+}
+function renderReadout() {
+  const d = D(), i = idx(), T = DATA.T[state.t], k = d.label[i];
+  const ie = d.inv_eps[i], s = d.sem[i], dd = ie - 4 * T;
+  const comb = Math.hypot(d.h1s[i], d.h2s[i]), drift = Math.abs(d.h2[i] - d.h1[i]) > 3 * comb;
+  const drop = d.lcmax[i] >= 0.5;
+  $('pill').innerHTML = `<i style="background:${stColor(k)};${k === 4 ? 'border:1px solid var(--ink3)' : ''}"></i>${LABEL_TEXT[k]}`;
+  const rows = [
+    ['T*, E0*', `${T.toFixed(2)}, ${DATA.E0[state.e].toFixed(2)}`],
+    ['1/ε(k<sub>min</sub>)', `${fmt(ie)} ± ${fmt(s)}`],
+    ['4T*', fmt(4 * T)],
+    ['d / σ', sgn(dd / s)],
+    ['half-runs', `${fmt(d.h1[i], 3)} / ${fmt(d.h2[i], 3)} <span class="${drift ? 'flag-bad' : 'flag-ok'}">${drift ? 'drift' : 'agree'}</span>`],
+    ['largest cluster', `mean ${(d.lc[i] * N).toFixed(1)}, max ${Math.round(d.lcmax[i] * N)} / ${N} <span class="${drop ? 'flag-bad' : 'flag-ok'}">${drop ? 'droplet' : 'gas'}</span>`],
+    ['S<sub>NN</sub>(k<sub>min</sub>)/N', d.snn[i].toFixed(2)],
+    ['acceptance', (d.acc[i] * 100).toFixed(2) + '%'],
+    ['effective samples', d.neff[i] == null ? '—' : Math.round(d.neff[i]).toLocaleString()],
+    ['run length', `${d.sweeps[i].toLocaleString()} sweeps`],
+  ];
+  $('readout').innerHTML = rows.map(([a, b]) => `<div class="kv"><span>${a}</span><span>${b}</span></div>`).join('');
+}
+
+// ---------- cut charts ----------
+const CH = { W: 560, H: 300, L: 46, R: 14, T: 14, B: 40 };
+function niceTicks(a, b, n) {
+  const step = Math.pow(10, Math.floor(Math.log10((b - a) / n))), err = (b - a) / n / step;
+  const s = step * (err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1);
+  const out = []; for (let v = Math.ceil(a / s) * s; v <= b + 1e-9; v += s) out.push(+v.toFixed(10)); return out;
+}
+function drawCut(svg, o) {
+  const { W, H, L, R, T, B } = CH;
+  const ys = o.y.map((v, j) => [v - (o.err[j] || 0), v + (o.err[j] || 0)]).flat();
+  const refs = o.ref.flatMap(p => [p[1]]);
+  let y0 = Math.min(0, ...ys, ...refs.filter(v => v < 1.1)) - 0.04, y1 = Math.max(1.02, ...ys) + 0.02;
+  y1 = Math.min(y1, 1.1);
+  const X = v => L + (v - o.xd[0]) / (o.xd[1] - o.xd[0]) * (W - L - R);
+  const Y = v => H - B - (v - y0) / (y1 - y0) * (H - T - B);
+  const ink = 'var(--ink)', ink2 = 'var(--ink2)', line = 'var(--line)';
+  let s = `<defs><clipPath id="clip-${svg.id}"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath></defs>`;
+  niceTicks(y0, y1, 5).forEach(v => { s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${line}" stroke-width="1"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${v.toFixed(1)}</text>`; });
+  o.xt.forEach(v => { s += `<line x1="${X(v)}" x2="${X(v)}" y1="${H - B}" y2="${H - B + 4}" stroke="${ink2}"/><text x="${X(v)}" y="${H - B + 16}" text-anchor="middle">${v.toFixed(o.xdp)}</text>`; });
+  s += `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="${ink2}" stroke-width="1"/>`;
+  s += `<text x="${L + (W - L - R) / 2}" y="${H - 6}" text-anchor="middle" class="ttl">${o.xlab}</text>`;
+  s += `<text x="12" y="${T + (H - T - B) / 2}" text-anchor="middle" class="ttl" transform="rotate(-90 12 ${T + (H - T - B) / 2})">1/ε</text>`;
+  s += `<g clip-path="url(#clip-${svg.id})">`;
+  if (o.band) s += `<rect x="${X(o.band[0])}" y="${T}" width="${X(o.band[1]) - X(o.band[0])}" height="${H - T - B}" fill="var(--st-d)" opacity=".10"/>`;
+  s += `<polyline points="${o.ref.map(p => `${X(p[0])},${Y(p[1])}`).join(' ')}" fill="none" stroke="${ink}" stroke-width="1.4" stroke-dasharray="5 4"/>`;
+  s += `<polyline points="${o.x.map((v, j) => `${X(v)},${Y(o.y[j])}`).join(' ')}" fill="none" stroke="${ink2}" stroke-width="1.2" opacity=".45"/>`;
+  o.x.forEach((v, j) => { if (o.err[j] > 0.004) s += `<line x1="${X(v)}" x2="${X(v)}" y1="${Y(o.y[j] - o.err[j])}" y2="${Y(o.y[j] + o.err[j])}" stroke="${stColor(o.lab[j])}" stroke-width="1.2"/>`; });
+  o.x.forEach((v, j) => {
+    const k = o.lab[j], valid = k <= 2, col = k <= 2 ? stColor(k) : 'var(--ink3)';
+    const sel = j === o.sel;
+    if (sel) s += `<circle cx="${X(v)}" cy="${Y(o.y[j])}" r="8" fill="none" stroke="${ink}" stroke-width="2"/>`;
+    s += `<circle cx="${X(v)}" cy="${Y(o.y[j])}" r="4.2" fill="${valid ? col : 'var(--surface)'}" stroke="${valid ? 'var(--surface)' : col}" stroke-width="${valid ? 1 : 1.6}"/>`;
+  });
+  if (o.mark) s += `<path d="M${X(o.mark[0])},${Y(o.mark[1]) - 6} l6,6 l-6,6 l-6,-6 z" fill="var(--st-d)" stroke="${ink}" stroke-width="1.2"/>`;
+  o.x.forEach((v, j) => { s += `<rect class="hit" data-j="${j}" x="${X(v) - 9}" y="${T}" width="18" height="${H - T - B}" fill="transparent" style="cursor:pointer"/>`; });
+  s += `</g>`;
+  svg.innerHTML = s;
+  svg.querySelectorAll('.hit').forEach(r => {
+    const j = +r.dataset.j;
+    r.addEventListener('mousemove', ev => showTip(ev, o.tip(j)));
+    r.addEventListener('mouseleave', hideTip);
+    r.addEventListener('click', () => o.pick(j));
+  });
+}
+function renderCuts() {
+  const d = D(), e = state.e, t = state.t;
+  const cT = { x: DATA.T, y: [], err: [], lab: [] };
+  for (let j = 0; j < nT; j++) { const i = j * nE + e; cT.y.push(d.inv_eps[i]); cT.err.push(d.sem[i]); cT.lab.push(d.label[i]); }
+  const v = d.lines.verdict[e];
+  drawCut($('cutT'), Object.assign(cT, {
+    xd: [0.04, 0.31], xt: [0.05, 0.10, 0.15, 0.20, 0.25, 0.30], xdp: 2, xlab: 'T*', sel: t,
+    ref: [[0.04, 0.16], [0.31, 1.24]],
+    band: v === 'BKT' ? [d.lines.T_lo[e], d.lines.T_hi[e]] : null,
+    mark: v === 'BKT' ? [d.lines.T_BKT[e], 4 * d.lines.T_BKT[e]] : null,
+    tip: j => `T* = ${DATA.T[j].toFixed(2)}\n1/ε = ${fmt(cT.y[j])} ± ${fmt(cT.err[j])}\n4T* = ${(4 * DATA.T[j]).toFixed(2)}\n${LABEL_TEXT[cT.lab[j]]}`,
+    pick: j => select(state.r, j, state.e, true)
+  }));
+  $('cutT-meta').textContent = `ρ* = ${d.rho}, E0* = ${DATA.E0[e].toFixed(2)}`;
+  const cE = { x: DATA.E0, y: [], err: [], lab: [] };
+  for (let j = 0; j < nE; j++) { const i = t * nE + j; cE.y.push(d.inv_eps[i]); cE.err.push(d.sem[i]); cE.lab.push(d.label[i]); }
+  const T = DATA.T[t];
+  drawCut($('cutE'), Object.assign(cE, {
+    xd: [-0.015, 0.515], xt: [0, 0.1, 0.2, 0.3, 0.4, 0.5], xdp: 1, xlab: 'E0*', sel: e,
+    ref: [[-0.015, 4 * T], [0.515, 4 * T]], band: null, mark: null,
+    tip: j => `E0* = ${DATA.E0[j].toFixed(2)}\n1/ε = ${fmt(cE.y[j])} ± ${fmt(cE.err[j])}\n4T* = ${(4 * T).toFixed(2)}\n${LABEL_TEXT[cE.lab[j]]}`,
+    pick: j => select(state.r, state.t, j, true)
+  }));
+  $('cutE-meta').textContent = `ρ* = ${d.rho}, T* = ${T.toFixed(2)}, 4T* = ${(4 * T).toFixed(2)}`;
+}
+
+// ---------- tooltip ----------
+function showTip(ev, text) {
+  const tip = $('tip'); tip.hidden = false; tip.textContent = ''; text.split('\n').forEach((l, i) => { if (i) tip.appendChild(document.createElement('br')); tip.appendChild(document.createTextNode(l)); });
+  const pad = 14, r = tip.getBoundingClientRect();
+  let x = ev.clientX + pad, y = ev.clientY + pad;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - pad;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - pad;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { $('tip').hidden = true; }
+
+// ---------- snapshot data ----------
+function ensureData(r) {
+  if (cache.has(r)) return cache.get(r);
+  const d = DATA.densities[r];
+  const p = fetch(`data/rho_${r}.txt`).then(res => { if (!res.ok) throw new Error(res.status); return res.text(); })
+    .then(txt => {
+      const bin = atob(txt.trim()), bytes = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+      const buf = bytes.buffer; if (buf.byteLength !== d.bytes) throw new Error('size'); cache.set(r, buf); if (r === state.r) drawFrame(); return buf; })
+    .catch(err => { cache.delete(r); if (r === state.r) vpMessage(`Snapshots for ρ* = ${d.rho} could not be loaded. Open the published page, or serve this folder over http (python -m http.server) and open it from there.`); });
+  cache.set(r, p);
+  if (r === state.r) vpMessage(`Loading snapshots for ρ* = ${d.rho} (${(d.bytes / 1e6).toFixed(1)} MB)…`);
+  return p;
+}
+function vpMessage(t) { const m = $('vpmsg'); m.textContent = t; m.hidden = !t; }
+function frameData(buf, d, s, f) {
+  const SB = N + d.frames * N * 4;
+  const q = new Int8Array(buf, s * SB, N);
+  const u = new Uint16Array(buf, s * SB + N + f * N * 4, N * 2);
+  return { q, u };
+}
+function clusters(xs, ys, cut2) {
+  const par = Array.from({ length: N }, (_, i) => i), bonds = [];
+  const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+    let dx = xs[i] - xs[j], dy = ys[i] - ys[j]; dx -= Math.round(dx); dy -= Math.round(dy);
+    if (dx * dx + dy * dy < cut2) { bonds.push([i, j]); const a = find(i), b = find(j); if (a !== b) par[a] = b; }
+  }
+  const size = new Map(); for (let i = 0; i < N; i++) { const r = find(i); size.set(r, (size.get(r) || 0) + 1); }
+  let best = -1, bs = 0; size.forEach((v, k) => { if (v > bs) { bs = v; best = k; } });
+  const inBig = new Uint8Array(N); for (let i = 0; i < N; i++) inBig[i] = find(i) === best ? 1 : 0;
+  return { bonds, inBig, big: bs };
+}
+function drawFrame() {
+  const buf = cache.get(state.r);
+  if (!(buf instanceof ArrayBuffer)) return;
+  vpMessage('');
+  const d = D(), s = idx(), f = Math.min(state.frame, d.frames - 1);
+  const { q, u } = frameData(buf, d, s, f);
+  const xs = new Float64Array(N), ys = new Float64Array(N);
+  for (let i = 0; i < N; i++) { xs[i] = u[2 * i] / 65536; ys[i] = u[2 * i + 1] / 65536; }
+  const a = d.a, cl = clusters(xs, ys, (1.5 * a) ** 2);
+  let cx = 0.5, cy = 0.5;
+  if ($('centre').value === 'cluster' && cl.big >= 5) {
+    let sx = 0, cx1 = 0, sy = 0, cy1 = 0;
+    for (let i = 0; i < N; i++) if (cl.inBig[i]) { sx += Math.sin(2 * Math.PI * xs[i]); cx1 += Math.cos(2 * Math.PI * xs[i]); sy += Math.sin(2 * Math.PI * ys[i]); cy1 += Math.cos(2 * Math.PI * ys[i]); }
+    cx = (Math.atan2(sx, cx1) / (2 * Math.PI) + 1) % 1; cy = (Math.atan2(sy, cy1) / (2 * Math.PI) + 1) % 1;
+  }
+  const zoom = +$('zoom').value;
+  const cv = $('vp'), { ctx, w } = sizeCanvas(cv), S = w;
+  ctx.fillStyle = css('--vp-bg'); ctx.fillRect(0, 0, S, S);
+  const px = new Float64Array(N), py = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    let dx = xs[i] - cx, dy = ys[i] - cy; dx -= Math.round(dx); dy -= Math.round(dy);
+    px[i] = (dx * zoom + 0.5) * S; py[i] = (0.5 - dy * zoom) * S;
+  }
+  const rad = Math.max(2.4, 0.5 * a * zoom * S);
+  if ($('bonds').checked) {
+    ctx.strokeStyle = css('--vp-bond'); ctx.lineWidth = Math.max(1, rad * 0.25);
+    ctx.beginPath();
+    cl.bonds.forEach(([i, j]) => { if (Math.abs(px[i] - px[j]) < S / 2 && Math.abs(py[i] - py[j]) < S / 2) { ctx.moveTo(px[i], py[i]); ctx.lineTo(px[j], py[j]); } });
+    ctx.stroke();
+  }
+  const pos = css('--q-pos'), neg = css('--q-neg');
+  for (let i = 0; i < N; i++) {
+    if (px[i] < -rad || px[i] > S + rad || py[i] < -rad || py[i] > S + rad) continue;
+    ctx.beginPath(); ctx.arc(px[i], py[i], rad, 0, 7); ctx.fillStyle = q[i] > 0 ? pos : neg; ctx.fill();
+    if (cl.inBig[i] && cl.big >= 3) { ctx.lineWidth = Math.max(1.4, rad * 0.22); ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
+  }
+  // scale bar: a round multiple of sigma, 50-140 px long
+  const sigPx = a * zoom * S; let m = 1; const opts = [1, 2, 5, 10, 20, 50, 100];
+  for (const o of opts) { m = o; if (o * sigPx >= 50) break; }
+  ctx.fillStyle = css('--vp-ink'); ctx.fillRect(S - 14 - m * sigPx, S - 18, m * sigPx, 2.5);
+  ctx.font = `500 11px ${css('--f-mono')}`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText(`${m}σ`, S - 14, S - 22);
+  const sweep = 1 + f * d.sweep_per_frame[s];
+  $('vpinfo').innerHTML = `frame ${f + 1} / ${d.frames} · production sweep ${sweep.toLocaleString()}<br>largest cluster ${cl.big} / ${N}${cl.big >= N / 2 ? ' · droplet' : ''}`;
+  $('frame').value = f;
+}
+
+// ---------- animation loop ----------
+function tick(ts) {
+  const fps = +$('speed').value;
+  if (state.playing && ts - lastTick >= 1000 / fps) {
+    lastTick = ts; state.frame = (state.frame + 1) % D().frames; drawFrame();
+  }
+  requestAnimationFrame(tick);
+}
+function setPlaying(p) { state.playing = p; $('play').textContent = p ? 'Pause' : 'Play'; }
+
+// ---------- wiring ----------
+function renderAll() { renderMap(); renderVerdict(); renderReadout(); renderCuts(); drawFrame(); $('frame').max = D().frames - 1; }
+function init() {
+  if (!readHash()) { const r = DATA.rho.findIndex(v => Math.abs(v - 0.00631) < 1e-9); Object.assign(state, { r: Math.max(0, r), t: DATA.T.findIndex(v => Math.abs(v - 0.21) < 1e-9), e: DATA.E0.findIndex(v => Math.abs(v - 0.10) < 1e-9) }); }
+  try { if (matchMedia('(prefers-reduced-motion: reduce)').matches) setPlaying(false); } catch (e) {}
+  renderRail(); renderLegend(); renderAll(); ensureData(state.r);
+  const map = $('map');
+  map.addEventListener('click', ev => { const h = mapHit(ev); if (h) { select(state.r, h.t, h.e); map.focus(); } });
+  map.addEventListener('mousemove', ev => {
+    const h = mapHit(ev); if (!h) return hideTip();
+    const d = D(), i = h.t * nE + h.e, T = DATA.T[h.t];
+    showTip(ev, `T* = ${T.toFixed(2)}, E0* = ${DATA.E0[h.e].toFixed(2)}\n${LABEL_TEXT[d.label[i]]}\n1/ε = ${fmt(d.inv_eps[i])}, 4T* = ${(4 * T).toFixed(2)}\nd/σ = ${sgn((d.inv_eps[i] - 4 * T) / d.sem[i])}`);
+  });
+  map.addEventListener('mouseleave', hideTip);
+  document.addEventListener('keydown', ev => {
+    if (ev.target.closest && ev.target.closest('select, input')) return;
+    const k = ev.key;
+    if (k === 'ArrowUp') { select(state.r, state.t + 1, state.e); ev.preventDefault(); }
+    else if (k === 'ArrowDown') { select(state.r, state.t - 1, state.e); ev.preventDefault(); }
+    else if (k === 'ArrowLeft') { select(state.r, state.t, state.e - 1); ev.preventDefault(); }
+    else if (k === 'ArrowRight') { select(state.r, state.t, state.e + 1); ev.preventDefault(); }
+    else if (k === ' ' && !(ev.target.closest && ev.target.closest('button'))) { setPlaying(!state.playing); ev.preventDefault(); }
+    else if (k === ',' || k === '.') { setPlaying(false); state.frame = (state.frame + (k === '.' ? 1 : -1) + D().frames) % D().frames; drawFrame(); }
+  });
+  $('play').onclick = () => setPlaying(!state.playing);
+  $('frame').oninput = ev => { setPlaying(false); state.frame = +ev.target.value; drawFrame(); };
+  ['zoom', 'centre', 'bonds'].forEach(id => $(id).addEventListener('change', drawFrame));
+  window.addEventListener('hashchange', () => { if (readHash()) { renderRail(); renderAll(); ensureData(state.r); } });
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderAll, 80); });
+  const rerender = () => { renderLegend(); renderAll(); };
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender); } catch (e) {}
+  new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  requestAnimationFrame(tick);
+}
+init();
+</script>
