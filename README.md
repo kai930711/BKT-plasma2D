@@ -122,13 +122,23 @@ droplets and density fluctuations on the scale of the box.
 
 ## References
 
-BibTeX entries are in [`lit/references.bib`](lit/references.bib). The main ones:
+Each entry links to the paper's DOI.
 
 - J. M. Kosterlitz and D. J. Thouless, J. Phys. C **6**, 1181 (1973): the BKT transition.
+  [doi:10.1088/0022-3719/6/7/010](https://doi.org/10.1088/0022-3719/6/7/010)
 - D. R. Nelson and J. M. Kosterlitz, Phys. Rev. Lett. **39**, 1201 (1977): universal jump of 1/ε.
+  [doi:10.1103/PhysRevLett.39.1201](https://doi.org/10.1103/PhysRevLett.39.1201)
 - J. W. Perram and S. W. de Leeuw, Physica A **109**, 237 (1981): Ewald sums for 2D Coulomb systems.
+  [doi:10.1016/0378-4371(81)90047-9](https://doi.org/10.1016/0378-4371(81)90047-9)
 - J. M. Caillol and D. Levesque, Phys. Rev. B **33**, 499 (1986): low-density phase diagram of the 2D Coulomb gas.
+  [doi:10.1103/PhysRevB.33.499](https://doi.org/10.1103/PhysRevB.33.499)
 - G. Orkoulas and A. Z. Panagiotopoulos, J. Chem. Phys. **101**, 1452 (1994): cluster moves for ionic fluids.
+  [doi:10.1063/1.467770](https://doi.org/10.1063/1.467770)
 - G. Orkoulas and A. Z. Panagiotopoulos, J. Chem. Phys. **104**, 7205 (1996): phase diagram of the 2D Coulomb gas
-  (benchmark for E₀ = 0).
+  (benchmark for E₀ = 0). [doi:10.1063/1.471406](https://doi.org/10.1063/1.471406)
+- D. Henderson, Mol. Phys. **30**, 971 (1975): equation of state for hard discs (reference state of the free-energy
+  integration). [doi:10.1080/00268977500102511](https://doi.org/10.1080/00268977500102511)
+- G. H. Golub and J. H. Welsch, Math. Comp. **23**, 221 (1969): Gauss quadrature rules.
+  [doi:10.1090/S0025-5718-69-99647-1](https://doi.org/10.1090/S0025-5718-69-99647-1)
 - F. P. Spitzner, J. Zierenberg and W. Janke, SciPost Phys. **5**, 062 (2018): droplet formation in finite systems.
+  [doi:10.21468/SciPostPhys.5.6.062](https://doi.org/10.21468/SciPostPhys.5.6.062) (open access, CC BY 4.0)
