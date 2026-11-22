@@ -1,0 +1,35 @@
+# Prepared by Make_Jobs.jl (queue already set). On the cluster: cd into this task folder, then condor_submit Dielectric.sub
+# The task folder must sit in BKT-plasma2D/ next to julia-1.12.6-linux-x86_64.tar.gz; folder names must not contain spaces.
+# Total progress: grep -c COMPLETE logs/Dielectric_job*.out | awk -F: '{s+=$2} END {print s}'
+# One job: tail -f logs/Dielectric_job<J>.<Cluster>.out
+# Before download, merge: tar -cf Dielectric_results.tar logs/Dielectric_job*.tar.gz  (needs twice the disk while merging)
+universe = vanilla
+executable = run_Dielectric.sh
+arguments = $(Process)
+
+log = logs/Dielectric_job$(Process).$(Cluster).log
+output = logs/Dielectric_job$(Process).$(Cluster).out
+error = logs/Dielectric_job$(Process).$(Cluster).err
+stream_output = True
+stream_error = True
+
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT_OR_EVICT
+transfer_input_files = ../julia-1.12.6-linux-x86_64.tar.gz, Project.toml, Manifest.toml, Setup.jl, Plasma_Interaction.jl, Monte_Carlo.jl, one_over_epsilon0.jl, Output_Coordinate_Dielectric.jl, Dielectric_jobs.csv
+transfer_output_files = Dielectric_results.tar.gz
+transfer_output_remaps = "Dielectric_results.tar.gz=logs/Dielectric_job$(Process)_$(Cluster).tar.gz"
+
+request_cpus = 1
+# Memory: local N=200 run with the Majorana table and 2000 frames held in memory peaked at 0.60 GB (11.7);
+# 11.3 cluster jobs peaked at 2.02 GB. 4 GB leaves room for Julia/JIT and packing.
+request_memory = 4GB
+retry_request_memory = 6GB, 8GB
+# Disk: Julia archive 0.29 GB + extracted 1.06 GB + depot 0.12 GB (11.7, with Interpolations)
+# + results x3 (largest job about 12 MB: N=50, ~26 long runs x 0.45 MB) = about 1.5 GB; 4 GB leaves margin.
+request_disk = 4GB
+requirements = (OpSys == "LINUX") && (Arch == "X86_64")
+max_retries = 2
+notification = Never
++JobBatchName = "BKT_Dielectric"
+
+queue 1
