@@ -10,7 +10,7 @@ density ρ\*, temperature T\* and coupling E0\*.
 | Path | Contents |
 |---|---|
 | `11.22 Final Version/` | Current simulation code (Julia 1.12.6). Copied unchanged from `11.7 Code Final Version` on the `David` branch (commit 375289c); the file hashes equal the `source_sha256` values recorded in the 11.8 scan metadata. |
-| `lit/` | References: Orkoulas & Panagiotopoulos, J. Chem. Phys. **104**, 7205 (1996); notes on the Majorana Monte Carlo model. |
+| `lit/` | `references.bib` (BibTeX for the papers behind the model, methods and analysis: Kosterlitz–Thouless 1973, Nelson–Kosterlitz 1977, Perram–de Leeuw 1981, Caillol–Levesque 1986, Orkoulas–Panagiotopoulos 1994 and 1996, Henderson 1975, Golub–Welsch 1969, Spitzner et al. 2018); PDF of Orkoulas & Panagiotopoulos, J. Chem. Phys. **104**, 7205 (1996); notes on the Majorana Monte Carlo model. |
 
 Analysis and earlier code live on other branches:
 - `kai`: `9.6_Summary`, `9.21_Density Correlation` (S_NN, S_QQ, 1/ε), `11.8_BKT_Transition` (BKT criterion on the 11.8 scan).
